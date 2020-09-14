@@ -1,10 +1,15 @@
 use crate::board::{Board, Color, Coord, Piece};
 use crate::moves::MoveType;
-use std::io::{BufRead, BufReader, Read, Write};
+use std::io::{Read, Write};
 use std::net::{TcpListener, TcpStream};
 use std::sync::{Arc, Mutex};
 
 struct HttpLineReader<T: Read + Write>(T);
+
+#[derive(Debug, Clone)]
+struct UiStatus {
+    color: Color,
+}
 
 impl<T: Read + Write> HttpLineReader<T> {
     fn push(&mut self, val: &[u8]) -> std::io::Result<()> {
@@ -84,7 +89,8 @@ fn response<T: Read + Write>(
     board: &mut Board,
     from: Option<(i8, i8)>,
     hl: &[Coord],
-    color: Color,
+    status: &UiStatus,
+    is_inspect_threat: bool,
 ) -> std::io::Result<()> {
     let mut send: Vec<u8> = vec![];
     writeln!(&mut send, "<!doctype html>")?;
@@ -93,13 +99,19 @@ fn response<T: Read + Write>(
     writeln!(&mut send, "  <body>")?;
     writeln!(
         &mut send,
-        "    <div class='row menu-bar' style='justify-content: space-evenly;'>"
+        "    <div class='row menu-bar' style='justify-content: space-between;'>"
     )?;
     writeln!(
         &mut send,
         "      <a href='/' style='text-decoration: none;'><button>&#x1f5f6; abort</button></a>"
     )?;
-    let colorstr = match color {
+    if !is_inspect_threat {
+        writeln!(
+            &mut send,
+            "      <a href='/inspect-threat' style='text-decoration: none;'><button>inspect threats</button></a>"
+        )?;
+    }
+    let colorstr = match status.color {
         Color::White => "white",
         Color::Black => "black",
     };
@@ -112,7 +124,9 @@ fn response<T: Read + Write>(
             let coord = Coord::from_xy(x, y);
             let (color, chr) = board.get(coord).repr();
             write!(&mut send, "        <a href='")?;
-            if let Some((from_x, from_y)) = from {
+            if is_inspect_threat {
+                write!(&mut send, "/inspect-threat/{}/{}'", x, y)?;
+            } else if let Some((from_x, from_y)) = from {
                 write!(&mut send, "/from/{}/{}/to/{}/{}'", from_x, from_y, x, y)?;
             } else {
                 write!(&mut send, "/select/{}/{}'", x, y)?;
@@ -138,10 +152,10 @@ fn response<T: Read + Write>(
     writeln!(&mut send, "    </div>")?;
     writeln!(&mut send, "  </body>")?;
     writeln!(&mut send, "  <style>")?;
-    writeln!(&mut send, "body {{ padding: 0; margin: 0; width: 100%; }}")?;
+    writeln!(&mut send, "body {{ padding: 0; margin: 0; width: 100%; display: flex; flex-direction: column; align-items: center; }}")?;
     writeln!(
         &mut send,
-        ".menu-bar {{ justify-content: center; padding: 1em; border-bottom: solid 1px black; margin-bottom: 1em; }}"
+        ".menu-bar {{ justify-content: center; padding: 1em; border-bottom: solid 1px black; margin-bottom: 1em; width: 60em; }}"
     )?;
     writeln!(
         &mut send,
@@ -265,12 +279,13 @@ fn handle_move<T: Read + Write>(
 fn handle_get<T: Read + Write>(
     writer: &mut HttpLineReader<T>,
     location: String,
-    board: &mut Arc<Mutex<(Board, Color)>>,
+    board: &mut Arc<Mutex<(Board, UiStatus)>>,
     select: &mut Option<Coord>,
 ) {
-    let (ref mut board, ref mut color) = &mut *board.lock().unwrap();
+    let (ref mut board, ref mut status) = &mut *board.lock().unwrap();
+    let color = &mut status.color;
     match location.split('/').collect::<Vec<_>>().as_slice() {
-        ["", ""] => response(writer, board, None, &[], *color),
+        ["", ""] => response(writer, board, None, &[], status, false),
         ["", "select", x, y] => {
             if let (Ok(x), Ok(y)) = (x.parse(), y.parse()) {
                 let hl = &board
@@ -279,7 +294,7 @@ fn handle_get<T: Read + Write>(
                     .iter()
                     .map(|m| m.end)
                     .collect::<Vec<_>>();
-                response(writer, board, Some((x, y)), hl, *color)
+                response(writer, board, Some((x, y)), hl, status, false)
             } else {
                 Ok(())
             }
@@ -307,12 +322,21 @@ fn handle_get<T: Read + Write>(
             };
             handle_move(writer, [fx, fy, tx, ty], board, color, piece)
         }
+        ["", "inspect-threat"] => response(writer, board, None, &[], status, true),
+        ["", "inspect-threat", x, y] => {
+            if let (Ok(x), Ok(y)) = (x.parse(), y.parse()) {
+                let hl = board.threat_mask.get(Coord::from_xy(x, y)).slice().to_vec();
+                response(writer, board, Some((x, y)), &hl, status, true)
+            } else {
+                Ok(())
+            }
+        }
         _ => Ok(()),
     }
     .unwrap();
 }
 
-fn threaded_client(stream: TcpStream, mut board: Arc<Mutex<(Board, Color)>>) {
+fn threaded_client(stream: TcpStream, mut board: Arc<Mutex<(Board, UiStatus)>>) {
     let mut lines = HttpLineReader(stream);
     let mut select = None;
     loop {
@@ -333,7 +357,10 @@ fn threaded_client(stream: TcpStream, mut board: Arc<Mutex<(Board, Color)>>) {
 }
 
 pub fn run_webserver(board: Board) {
-    let glob_board = Arc::new(Mutex::new((board, Color::White)));
+    let status = UiStatus {
+        color: Color::White,
+    };
+    let glob_board = Arc::new(Mutex::new((board, status)));
     let listener = TcpListener::bind("127.0.0.1:3999").unwrap();
     for con in listener.incoming() {
         let con = match con {

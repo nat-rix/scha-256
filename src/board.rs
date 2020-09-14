@@ -93,7 +93,7 @@ pub trait CommonCoord {
 
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct UnsafeCoord(i8);
+pub struct UnsafeCoord(pub(crate) i8);
 
 impl CommonCoord for UnsafeCoord {
     fn raw(&self) -> i8 {
@@ -103,7 +103,7 @@ impl CommonCoord for UnsafeCoord {
 
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct Coord(core::num::NonZeroI8);
+pub struct Coord(pub(crate) core::num::NonZeroI8);
 
 impl CommonCoord for Coord {
     fn raw(&self) -> i8 {
@@ -208,8 +208,11 @@ impl Coord {
         UnsafeCoord(self.0.get() + x + y * 10)
     }
 
+    /// # Safety
+    /// Safe as long n = 21 + i + j * 10 with i, j
+    /// being integers from 0 to 7.
     pub const unsafe fn new_unchecked(n: i8) -> Self {
-        Self(unsafe { core::num::NonZeroI8::new_unchecked(n) })
+        Self(core::num::NonZeroI8::new_unchecked(n))
     }
 
     pub const fn as_unsafe(self) -> UnsafeCoord {

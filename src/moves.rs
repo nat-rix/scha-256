@@ -56,7 +56,7 @@ pub struct Move {
 }
 
 impl Board {
-    fn list_king_moves<const N: usize>(
+    pub(crate) fn list_king_moves<const N: usize>(
         &self,
         coord: Coord,
         color: Color,
@@ -66,7 +66,7 @@ impl Board {
         // TODO: castling
     }
 
-    fn list_pawn_moves<const N: usize>(
+    pub(crate) fn list_pawn_moves<const N: usize>(
         &self,
         coord: Coord,
         color: Color,
@@ -135,7 +135,7 @@ impl Board {
         }
     }
 
-    fn list_directional_moves<const N: usize>(
+    pub(crate) fn list_directional_moves<const N: usize>(
         &self,
         coord: Coord,
         color: Color,
@@ -171,7 +171,7 @@ impl Board {
         }
     }
 
-    fn list_rook_moves<const N: usize>(
+    pub(crate) fn list_rook_moves<const N: usize>(
         &self,
         coord: Coord,
         color: Color,
@@ -180,7 +180,7 @@ impl Board {
         self.list_directional_moves(coord, color, &[(1, 0), (-1, 0), (0, 1), (0, -1)], into)
     }
 
-    fn list_bishop_moves<const N: usize>(
+    pub(crate) fn list_bishop_moves<const N: usize>(
         &self,
         coord: Coord,
         color: Color,
@@ -189,7 +189,7 @@ impl Board {
         self.list_directional_moves(coord, color, &[(1, 1), (-1, 1), (1, -1), (-1, -1)], into)
     }
 
-    fn list_knight_moves<const N: usize>(
+    pub(crate) fn list_knight_moves<const N: usize>(
         &self,
         coord: Coord,
         color: Color,
@@ -223,7 +223,7 @@ impl Board {
         }
     }
 
-    fn list_queen_moves<const N: usize>(
+    pub(crate) fn list_queen_moves<const N: usize>(
         &self,
         coord: Coord,
         color: Color,
@@ -246,7 +246,7 @@ impl Board {
         )
     }
 
-    fn list_piece_moves<const N: usize>(
+    pub(crate) fn list_piece_moves<const N: usize>(
         &self,
         coord: Coord,
         piece: Piece,
@@ -279,6 +279,7 @@ impl Board {
     }
 
     pub fn do_move(&mut self, mv: Move) {
+        self.remove_threat_mask_piece_moves(mv);
         let old_en_passant_chance = self.en_passant_chance;
         self.en_passant_chance = None;
         match mv.move_type {
@@ -335,9 +336,10 @@ impl Board {
                     ),
                 })
             }
-            MoveType::Castle(dir) => {
+            MoveType::Castle(_dir) => {
                 // TODO: castling
             }
         }
+        self.update_threat_mask_with(mv)
     }
 }
