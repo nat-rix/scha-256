@@ -1,5 +1,6 @@
 use crate::board::{Board, Color, Coord, Field, Piece};
 use crate::list::List;
+use crate::threat::{Direction, King};
 
 pub type MoveList = List<Move, 27>;
 pub(crate) type RestoreStack = List<RestoreEntry, 256>;
@@ -18,18 +19,9 @@ pub struct RestoreEntry {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum Direction {
+pub enum CastleDirection {
     Left,
     Right,
-}
-
-impl Direction {
-    pub fn as_vector(self) -> i8 {
-        match self {
-            Self::Left => -1,
-            Self::Right => 1,
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -39,13 +31,19 @@ pub enum PromotionType {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct Castle {
+    rook_pos: Coord,
+    rook_target: Coord,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum MoveType {
     Regular,
     RegularPawnDoubleForward,
     Capture,
     Promote(Piece, PromotionType),
     EnPassant(Coord),
-    Castle(Direction),
+    Castle(Castle),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -60,10 +58,70 @@ impl Board {
         &self,
         coord: Coord,
         color: Color,
+        is_in_check: bool,
         into: &mut List<Move, N>,
     ) {
-        // TODO: king's moves
-        // TODO: castling
+        for &(dx, dy) in &[
+            (1, 0),
+            (-1, 0),
+            (0, 1),
+            (0, -1),
+            (-1, 1),
+            (-1, -1),
+            (1, 1),
+            (1, -1),
+        ] {
+            if let Some((target_coord, field)) = self.get_if_safe(coord.rel(dx, dy)) {
+                if !self.get_threatened_by(target_coord, color) {
+                    if matches!(field, Field::Empty) {
+                        into.append(Move {
+                            start: coord,
+                            end: target_coord,
+                            move_type: MoveType::Regular,
+                        })
+                    } else if field.is_color_piece(color) {
+                        into.append(Move {
+                            start: coord,
+                            end: target_coord,
+                            move_type: MoveType::Capture,
+                        })
+                    }
+                }
+            }
+        }
+        if !is_in_check {
+            let king = self.get_king(color);
+            let mut castle_d = |d1, d2, d3| {
+                if let (Some((rook_target, Field::Empty)), Some((king_target, Field::Empty))) = (
+                    self.get_if_safe(coord.rel(d1, 0)),
+                    self.get_if_safe(coord.rel(d2, 0)),
+                ) {
+                    if let (Color::Black, Some((rook_pos, Field::BlackPiece(Piece::Rook))))
+                    | (Color::White, Some((rook_pos, Field::WhitePiece(Piece::Rook)))) =
+                        (color, self.get_if_safe(coord.rel(d3, 0)))
+                    {
+                        if !self.get_threatened_by(rook_target, color)
+                            && !self.get_threatened_by(king_target, color)
+                        {
+                            into.append(Move {
+                                start: coord,
+                                end: king_target,
+                                move_type: MoveType::Castle(Castle {
+                                    rook_pos,
+                                    rook_target,
+                                }),
+                            })
+                        }
+                    }
+                }
+            };
+            if king.castling_to_right {
+                castle_d(1, 2, 3);
+            }
+            if king.castling_to_left {
+                castle_d(-1, -2, -4);
+            }
+        }
     }
 
     pub(crate) fn list_pawn_moves<const N: usize>(
@@ -265,21 +323,101 @@ impl Board {
     fn add_moves<const N: usize>(&self, coord: Coord, into: &mut List<Move, N>) {
         match self.get(coord) {
             Field::Empty | Field::Invincible => (),
-            Field::BlackKing => self.list_king_moves(coord, Color::Black, into),
-            Field::WhiteKing => self.list_king_moves(coord, Color::White, into),
+            Field::BlackKing => self.list_king_moves(coord, Color::Black, false, into),
+            Field::WhiteKing => self.list_king_moves(coord, Color::White, false, into),
             Field::BlackPiece(piece) => self.list_piece_moves(coord, *piece, Color::Black, into),
             Field::WhitePiece(piece) => self.list_piece_moves(coord, *piece, Color::White, into),
         }
     }
 
-    pub fn enumerate_moves(&self, coord: Coord) -> MoveList {
+    pub fn is_in_check(&self, color: Color) -> bool {
+        self.get_threatened_by(self.get_king(color).coord, color)
+    }
+
+    pub fn enumerate_moves(&self, color: Color, coord: Coord) -> MoveList {
+        if self.is_in_check(color) {
+            panic!("shit, im in check");
+        } else {
+            self.enumerate_moves_no_check(color, coord)
+        }
+    }
+
+    pub fn is_potential_check(&self, king: &King, mv: &Move) -> bool {
+        let pc = king.get_potential_check(mv.start);
+        if let Some((coord, d)) = pc {
+            if &mv.end == coord {
+                return false;
+            }
+            if let Field::BlackPiece(piece) | Field::WhitePiece(piece) = self.get(mv.start) {
+                if let Piece::Knight = piece {
+                    true
+                } else {
+                    let (start, end) = (mv.start.0.get(), mv.end.0.get());
+                    let (sx, sy) = (start % 10, start / 10);
+                    let (ex, ey) = (end % 10, end / 10);
+                    use core::cmp::Ordering::*;
+                    match (sx.cmp(&ex), sy.cmp(&ey)) {
+                        (Equal, _) => d != &Direction::Up && d != &Direction::Down,
+                        (_, Equal) => d != &Direction::Left && d != &Direction::Right,
+                        (Greater, Greater) | (Less, Less) => {
+                            d != &Direction::UpRight && d != &Direction::DownLeft
+                        }
+                        (Greater, Less) | (Less, Greater) => {
+                            d != &Direction::UpLeft && d != &Direction::DownRight
+                        }
+                    }
+                }
+            } else {
+                false
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn filter_potential_checks(&self, king: &King, list: &mut MoveList) {
+        list.filter(|v| {
+            let a = !self.is_potential_check(king, v);
+            a
+        })
+    }
+
+    pub fn enumerate_moves_no_check(&self, color: Color, coord: Coord) -> MoveList {
         let mut list = MoveList::new();
         self.add_moves(coord, &mut list);
+        self.filter_potential_checks(self.get_king(color), &mut list);
         list
     }
 
     pub fn do_move(&mut self, mv: Move) {
         self.remove_threat_mask_piece_moves(mv);
+        match self.get(mv.start) {
+            Field::BlackKing => {
+                self.black_king.coord = mv.end;
+                self.black_king.castling_to_left = false;
+                self.black_king.castling_to_right = false;
+            }
+            Field::WhiteKing => {
+                self.white_king.coord = mv.end;
+                self.white_king.castling_to_left = false;
+                self.white_king.castling_to_right = false;
+            }
+            Field::WhitePiece(Piece::Rook) => {
+                if mv.start == Coord::from_xy(0, 0) {
+                    self.white_king.castling_to_left = false;
+                } else {
+                    self.white_king.castling_to_right = false;
+                }
+            }
+            Field::BlackPiece(Piece::Rook) => {
+                if mv.start == Coord::from_xy(0, 7) {
+                    self.black_king.castling_to_left = false;
+                } else {
+                    self.black_king.castling_to_right = false;
+                }
+            }
+            _ => (),
+        };
         let old_en_passant_chance = self.en_passant_chance;
         self.en_passant_chance = None;
         match mv.move_type {
@@ -336,10 +474,15 @@ impl Board {
                     ),
                 })
             }
-            MoveType::Castle(_dir) => {
-                // TODO: castling
+            MoveType::Castle(Castle {
+                rook_pos,
+                rook_target,
+            }) => {
+                self.move_piece(mv.start, mv.end, Field::Empty);
+                self.move_piece(rook_pos, rook_target, Field::Empty);
             }
         }
-        self.update_threat_mask_with(mv)
+        self.update_threat_mask_with(mv);
+        self.update_potential_checks();
     }
 }

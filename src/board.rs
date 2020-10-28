@@ -1,4 +1,5 @@
-use crate::check::ThreatMask;
+use crate::list::List;
+use crate::threat::{King, ThreatMask};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum Color {
@@ -195,6 +196,10 @@ impl UnsafeCoord {
             None
         }
     }
+
+    pub const unsafe fn as_safe_unchecked(self) -> Coord {
+        Coord::new_unchecked(self.0)
+    }
 }
 
 impl Coord {
@@ -204,8 +209,13 @@ impl Coord {
     }
 
     pub const fn rel(self, x: i8, y: i8) -> UnsafeCoord {
-        let _ = ([0; 3][x.abs() as usize], [0; 3][y.abs() as usize]);
+        let _ = ([0; 20][x.abs() as usize], [0; 3][y.abs() as usize]);
         UnsafeCoord(self.0.get() + x + y * 10)
+    }
+
+    pub const fn rel_1d(self, n: i8) -> UnsafeCoord {
+        let _ = [0; 20][n as usize];
+        UnsafeCoord(self.0.get() + n)
     }
 
     /// # Safety
@@ -234,6 +244,8 @@ pub struct Board {
     pub(crate) en_passant_chance: Option<Coord>,
     pub(crate) threat_mask: ThreatMask,
     pub(crate) restore_stack: crate::moves::RestoreStack,
+    pub(crate) black_king: King,
+    pub(crate) white_king: King,
 }
 
 impl Board {
@@ -258,7 +270,7 @@ impl Board {
             BlackPiece(Pawn),
         );
         #[allow(clippy::deprecated_cfg_attr)]
-        Self {
+        let mut self_empty_threat_mask = Self {
             #[cfg_attr(rustfmt, rustfmt_skip)]
             data: [
                 II, II, II, II, II, II, II, II, II, II, II, II, II, II, II, II, II, II, II, II, II,
@@ -275,7 +287,11 @@ impl Board {
             en_passant_chance: Some(Coord::from_xy(3, 3)),
             threat_mask: ThreatMask::new(),
             restore_stack: crate::moves::RestoreStack::new(),
-        }
+            black_king: King::new(Color::Black),
+            white_king: King::new(Color::White),
+        };
+        self_empty_threat_mask.init_threat_mask();
+        self_empty_threat_mask
     }
 
     pub fn get<C: CommonCoord>(&self, coord: C) -> &Field {
@@ -305,6 +321,20 @@ impl Board {
     pub fn pop_field(&mut self, coord: Coord, mut value: Field) -> Field {
         core::mem::swap(self.get_mut(coord), &mut value);
         value
+    }
+
+    pub fn get_king(&self, color: Color) -> &King {
+        match color {
+            Color::White => &self.white_king,
+            Color::Black => &self.black_king,
+        }
+    }
+
+    pub fn get_king_mut(&mut self, color: Color) -> &mut King {
+        match color {
+            Color::White => &mut self.white_king,
+            Color::Black => &mut self.black_king,
+        }
     }
 
     pub fn output_terminal(&self, number_hints: bool, highlights: &[Coord]) {

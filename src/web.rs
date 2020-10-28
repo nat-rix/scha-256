@@ -6,6 +6,11 @@ use std::sync::{Arc, Mutex};
 
 struct HttpLineReader<T: Read + Write>(T);
 
+fn parse_coords(x: &str, y: &str) -> Option<(i8, i8)> {
+    let f = |s: &str| s.parse().ok().filter(|n| (0..8).contains(n));
+    f(x).zip(f(y))
+}
+
 #[derive(Debug, Clone)]
 struct UiStatus {
     color: Color,
@@ -152,7 +157,7 @@ fn response<T: Read + Write>(
     writeln!(&mut send, "    </div>")?;
     writeln!(&mut send, "  </body>")?;
     writeln!(&mut send, "  <style>")?;
-    writeln!(&mut send, "body {{ padding: 0; margin: 0; width: 100%; display: flex; flex-direction: column; align-items: center; }}")?;
+    writeln!(&mut send, "body {{ font-family: FreeSerif, 'Nimbus Sans', Arial, monospace, Helvetica; padding: 0; margin: 0; width: 100%; display: flex; flex-direction: column; align-items: center; }}")?;
     writeln!(
         &mut send,
         ".menu-bar {{ justify-content: center; padding: 1em; border-bottom: solid 1px black; margin-bottom: 1em; width: 60em; }}"
@@ -244,12 +249,10 @@ fn handle_move<T: Read + Write>(
     promote: Option<Piece>,
 ) -> std::io::Result<()> {
     let mut loc = "/".to_string();
-    if let (Ok(fx), Ok(fy), Ok(tx), Ok(ty)) =
-        (c[0].parse(), c[1].parse(), c[2].parse(), c[3].parse())
-    {
+    if let (Some((fx, fy)), Some((tx, ty))) = (parse_coords(c[0], c[1]), parse_coords(c[2], c[3])) {
         let to = Coord::from_xy(tx, ty);
         if let Some(&mv) = board
-            .enumerate_moves(Coord::from_xy(fx, fy))
+            .enumerate_moves(*color, Coord::from_xy(fx, fy))
             .slice()
             .iter()
             .filter(|m| board.get(m.start).is_color_piece_include_king(!*color))
@@ -287,9 +290,9 @@ fn handle_get<T: Read + Write>(
     match location.split('/').collect::<Vec<_>>().as_slice() {
         ["", ""] => response(writer, board, None, &[], status, false),
         ["", "select", x, y] => {
-            if let (Ok(x), Ok(y)) = (x.parse(), y.parse()) {
+            if let Some((x, y)) = parse_coords(x, y) {
                 let hl = &board
-                    .enumerate_moves(Coord::from_xy(x, y))
+                    .enumerate_moves(*color, Coord::from_xy(x, y))
                     .slice()
                     .iter()
                     .map(|m| m.end)
@@ -303,9 +306,7 @@ fn handle_get<T: Read + Write>(
             handle_move(writer, [fx, fy, tx, ty], board, color, None)
         }
         ["", "promotion", fx, fy, tx, ty] => {
-            if let (Ok(fx), Ok(fy), Ok(tx), Ok(ty)) =
-                (fx.parse(), fy.parse(), tx.parse(), ty.parse())
-            {
+            if let (Some((fx, fy)), Some((tx, ty))) = (parse_coords(fx, fy), parse_coords(fx, ty)) {
                 handle_promotion(writer, [fx, fy, tx, ty])
             } else {
                 Ok(())
@@ -324,7 +325,7 @@ fn handle_get<T: Read + Write>(
         }
         ["", "inspect-threat"] => response(writer, board, None, &[], status, true),
         ["", "inspect-threat", x, y] => {
-            if let (Ok(x), Ok(y)) = (x.parse(), y.parse()) {
+            if let Some((x, y)) = parse_coords(x, y) {
                 let hl = board.threat_mask.get(Coord::from_xy(x, y)).slice().to_vec();
                 response(writer, board, Some((x, y)), &hl, status, true)
             } else {
@@ -361,7 +362,7 @@ pub fn run_webserver(board: Board) {
         color: Color::White,
     };
     let glob_board = Arc::new(Mutex::new((board, status)));
-    let listener = TcpListener::bind("127.0.0.1:3999").unwrap();
+    let listener = TcpListener::bind("0.0.0.0:3999").unwrap();
     for con in listener.incoming() {
         let con = match con {
             Ok(con) => con,

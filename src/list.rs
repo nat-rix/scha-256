@@ -45,6 +45,41 @@ impl<T, const N: usize> List<T, N> {
     pub fn slice_mut(&mut self) -> &mut [T] {
         &mut self.data[..self.size]
     }
+
+    pub fn is_empty(&self) -> bool {
+        self.size == 0
+    }
+}
+
+impl<T: PartialEq + 'static, const N: usize> List<T, N> {
+    pub fn swap_remove(&mut self, item: &T) {
+        let mut unsafeself = || unsafe { &mut *(self as *mut Self) };
+        if let Some(item) = unsafeself().slice_mut().iter_mut().find(|i| i == &item) {
+            if let Some(last) = unsafeself().slice_mut().last_mut() {
+                unsafe { (item as *mut T).swap(last) };
+                self.size -= 1;
+            }
+        }
+    }
+
+    pub fn swap_remove_at(&mut self, n: usize) {
+        let sz = self.size;
+        if n + 1 < N {
+            self.slice_mut().swap(sz - 1, n)
+        }
+        self.size -= 1;
+    }
+
+    pub fn filter<F: FnMut(&T) -> bool>(&mut self, mut f: F) {
+        let n = self.size;
+        for i in 0..n {
+            let i = n - i - 1;
+            let v = unsafe { self.slice().get_unchecked(i) };
+            if !f(v) {
+                self.swap_remove_at(i);
+            }
+        }
+    }
 }
 
 impl<T: Sized, const N: usize> Drop for List<T, N> {
