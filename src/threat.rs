@@ -2,16 +2,19 @@ use crate::board::{Board, Color, CommonCoord, Coord, Field, Piece, UnsafeCoord};
 use crate::list::{array_from_fn, List};
 use crate::moves::{Move, MoveType, PromotionType};
 
+pub type ThreatList = List<Coord, 16>;
+
 #[derive(Debug, Clone)]
 pub struct King {
     pub coord: Coord,
     pub potential_check_map: [Option<(Coord, Direction)>; 10 * 12],
     pub castling_to_left: bool,
     pub castling_to_right: bool,
+    pub aggressors: ThreatList,
 }
 
 impl King {
-    pub const fn new(color: Color) -> Self {
+    pub fn new(color: Color) -> Self {
         Self {
             coord: if let Color::Black = color {
                 Coord::from_xy(4, 7)
@@ -21,6 +24,7 @@ impl King {
             potential_check_map: [None; 10 * 12],
             castling_to_left: true,
             castling_to_right: true,
+            aggressors: ThreatList::new(),
         }
     }
 
@@ -81,7 +85,7 @@ impl Direction {
 
 #[derive(Debug, Clone)]
 pub struct ThreatMask {
-    threats: [List<Coord, 16>; 10 * 12],
+    threats: [ThreatList; 10 * 12],
 }
 
 impl Default for ThreatMask {
@@ -97,11 +101,11 @@ impl ThreatMask {
         }
     }
 
-    pub fn get<C: CommonCoord>(&self, coord: C) -> &List<Coord, 16> {
+    pub fn get<C: CommonCoord>(&self, coord: C) -> &ThreatList {
         unsafe { self.threats.get_unchecked(coord.raw() as usize) }
     }
 
-    pub fn get_mut<C: CommonCoord>(&mut self, coord: C) -> &mut List<Coord, 16> {
+    pub fn get_mut<C: CommonCoord>(&mut self, coord: C) -> &mut ThreatList {
         unsafe { self.threats.get_unchecked_mut(coord.raw() as usize) }
     }
 }
@@ -465,6 +469,12 @@ impl Board {
                 *self.get_king_mut(c).get_potential_check_mut(coord) = Some((coord, dir));
             }
         }
+    }
+
+    pub fn update_aggressors(&mut self, color: Color) {
+        let mut lst = self.threat_mask.get(self.get_king(color).coord).clone();
+        lst.filter(|&coord| self.get(coord).is_color_piece(color));
+        self.get_king_mut(color).aggressors = lst;
     }
 
     pub fn get_threatened_by<C: CommonCoord>(&self, coord: C, color: Color) -> bool {

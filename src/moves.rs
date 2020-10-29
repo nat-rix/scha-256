@@ -54,6 +54,18 @@ pub struct Move {
 }
 
 impl Board {
+    // TODO: explain the magic happening here
+    fn is_bad_king_move(&self, coord: Coord, target: Coord, color: Color) -> bool {
+        let od = coord.rel_1d(coord.0.get() - target.0.get());
+        let od_threats = self.threat_mask.get(od);
+        for threat in self.threat_mask.get(coord).slice() {
+            if self.get(*threat).is_color_piece(color) && od_threats.slice().contains(threat) {
+                return true;
+            }
+        }
+        false
+    }
+
     pub(crate) fn list_king_moves<const N: usize>(
         &self,
         coord: Coord,
@@ -74,12 +86,16 @@ impl Board {
             if let Some((target_coord, field)) = self.get_if_safe(coord.rel(dx, dy)) {
                 if !self.get_threatened_by(target_coord, color) {
                     if matches!(field, Field::Empty) {
-                        into.append(Move {
-                            start: coord,
-                            end: target_coord,
-                            move_type: MoveType::Regular,
-                        })
-                    } else if field.is_color_piece(color) {
+                        if !is_in_check || !self.is_bad_king_move(coord, target_coord, color) {
+                            into.append(Move {
+                                start: coord,
+                                end: target_coord,
+                                move_type: MoveType::Regular,
+                            })
+                        }
+                    } else if field.is_color_piece(color)
+                        && (!is_in_check || !self.is_bad_king_move(coord, target_coord, color))
+                    {
                         into.append(Move {
                             start: coord,
                             end: target_coord,
@@ -330,16 +346,36 @@ impl Board {
         }
     }
 
+    fn add_moves_check<const N: usize>(&self, coord: Coord, into: &mut List<Move, N>) {
+        match self.get(coord) {
+            Field::Empty | Field::Invincible => (),
+            Field::BlackKing => self.list_king_moves(coord, Color::Black, true, into),
+            Field::WhiteKing => self.list_king_moves(coord, Color::White, true, into),
+            Field::BlackPiece(piece) => {
+                self.list_piece_moves(coord, *piece, Color::Black, into);
+                self.filter_checks(coord, into)
+            }
+            Field::WhitePiece(piece) => {
+                self.list_piece_moves(coord, *piece, Color::White, into);
+                self.filter_checks(coord, into)
+            }
+        }
+    }
+
     pub fn is_in_check(&self, color: Color) -> bool {
         self.get_threatened_by(self.get_king(color).coord, color)
     }
 
     pub fn enumerate_moves(&self, color: Color, coord: Coord) -> MoveList {
-        if self.is_in_check(color) {
-            panic!("shit, im in check");
+        let mut list = MoveList::new();
+        let king = self.get_king(color);
+        if king.aggressors.is_empty() {
+            self.add_moves(coord, &mut list)
         } else {
-            self.enumerate_moves_no_check(color, coord)
+            self.add_moves_check(coord, &mut list)
         }
+        self.filter_potential_checks(king, &mut list);
+        list
     }
 
     pub fn is_potential_check(&self, king: &King, mv: &Move) -> bool {
@@ -375,18 +411,16 @@ impl Board {
         }
     }
 
-    pub fn filter_potential_checks(&self, king: &King, list: &mut MoveList) {
-        list.filter(|v| {
-            let a = !self.is_potential_check(king, v);
-            a
-        })
+    pub fn is_check_saving(&self, coord: Coord, mv: &Move) -> bool {
+        false
     }
 
-    pub fn enumerate_moves_no_check(&self, color: Color, coord: Coord) -> MoveList {
-        let mut list = MoveList::new();
-        self.add_moves(coord, &mut list);
-        self.filter_potential_checks(self.get_king(color), &mut list);
-        list
+    pub fn filter_checks<const N: usize>(&self, coord: Coord, list: &mut List<Move, N>) {
+        list.filter(|v| self.is_check_saving(coord, v))
+    }
+
+    pub fn filter_potential_checks<const N: usize>(&self, king: &King, list: &mut List<Move, N>) {
+        list.filter(|v| !self.is_potential_check(king, v))
     }
 
     pub fn do_move(&mut self, mv: Move) {

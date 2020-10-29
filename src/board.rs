@@ -1,4 +1,3 @@
-use crate::list::List;
 use crate::threat::{King, ThreatMask};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -214,7 +213,7 @@ impl Coord {
     }
 
     pub const fn rel_1d(self, n: i8) -> UnsafeCoord {
-        let _ = [0; 20][n as usize];
+        let _ = [0; 20][n.abs() as usize];
         UnsafeCoord(self.0.get() + n)
     }
 

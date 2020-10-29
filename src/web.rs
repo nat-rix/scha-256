@@ -283,7 +283,7 @@ fn handle_get<T: Read + Write>(
     writer: &mut HttpLineReader<T>,
     location: String,
     board: &mut Arc<Mutex<(Board, UiStatus)>>,
-    select: &mut Option<Coord>,
+    _select: &mut Option<Coord>,
 ) {
     let (ref mut board, ref mut status) = &mut *board.lock().unwrap();
     let color = &mut status.color;
@@ -291,6 +291,7 @@ fn handle_get<T: Read + Write>(
         ["", ""] => response(writer, board, None, &[], status, false),
         ["", "select", x, y] => {
             if let Some((x, y)) = parse_coords(x, y) {
+                board.update_aggressors(*color);
                 let hl = &board
                     .enumerate_moves(*color, Coord::from_xy(x, y))
                     .slice()
@@ -306,7 +307,7 @@ fn handle_get<T: Read + Write>(
             handle_move(writer, [fx, fy, tx, ty], board, color, None)
         }
         ["", "promotion", fx, fy, tx, ty] => {
-            if let (Some((fx, fy)), Some((tx, ty))) = (parse_coords(fx, fy), parse_coords(fx, ty)) {
+            if let (Some((fx, fy)), Some((tx, ty))) = (parse_coords(fx, fy), parse_coords(tx, ty)) {
                 handle_promotion(writer, [fx, fy, tx, ty])
             } else {
                 Ok(())
