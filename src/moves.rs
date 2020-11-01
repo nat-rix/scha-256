@@ -54,12 +54,21 @@ pub struct Move {
 }
 
 impl Board {
-    // TODO: explain the magic happening here
     fn is_bad_king_move(&self, coord: Coord, target: Coord, color: Color) -> bool {
-        let od = coord.rel_1d(coord.0.get() - target.0.get());
-        let od_threats = self.threat_mask.get(od);
-        for threat in self.threat_mask.get(coord).slice() {
-            if self.get(*threat).is_color_piece(color) && od_threats.slice().contains(threat) {
+        for &threat in self.threat_mask.get(coord).slice() {
+            let f = self.get(threat);
+            let dif = (target.0.get() - threat.0.get()).abs();
+            let diag = || dif % 9 == 0 || dif % 11 == 0;
+            let hor = || dif % 10 == 0 || (target.0.get() / 10 == threat.0.get() / 10);
+            if match (color, f) {
+                (Color::White, Field::BlackPiece(Piece::Bishop))
+                | (Color::Black, Field::WhitePiece(Piece::Bishop)) => diag(),
+                (Color::White, Field::BlackPiece(Piece::Rook))
+                | (Color::Black, Field::WhitePiece(Piece::Rook)) => hor(),
+                (Color::White, Field::BlackPiece(Piece::Queen))
+                | (Color::Black, Field::WhitePiece(Piece::Queen)) => diag() || hor(),
+                _ => false,
+            } {
                 return true;
             }
         }
