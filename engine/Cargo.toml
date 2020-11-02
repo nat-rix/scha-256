@@ -1,0 +1,36 @@
+[package]
+name = "scha256-engine"
+version = "0.1.0"
+authors = ["NatrixAeria <upezu@student.kit.edu>"]
+edition = "2018"
+description = "a min-max chess engine"
+
+[lib]
+crate-type = ["rlib"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[profile.dev]
+opt-level = 1
+debug = 2
+debug-assertions = true
+overflow-checks = true
+lto = "off"
+panic = "unwind"
+incremental = true
+codegen-units = 256
+
+[profile.release]
+opt-level = 3
+debug = 0
+debug-assertions = false
+overflow-checks = false
+lto = "fat"
+panic = "abort"
+incremental = false
+codegen-units = 1
+
+[profile.release.build-override]
+opt-level = 3
+
+[dependencies]
