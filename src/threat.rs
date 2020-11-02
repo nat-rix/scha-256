@@ -246,8 +246,13 @@ impl Board {
                 self.update_threat_mask_add_barrier(mv.end);
                 self.update_threat_mask_add_piece(mv.end);
             }
-            MoveType::Castle(_dir) => {
-                // TODO: castling
+            MoveType::Castle(castle) => {
+                self.update_threat_mask_remove_barrier(mv.start);
+                self.update_threat_mask_remove_barrier(castle.rook_pos);
+                self.update_threat_mask_add_barrier(mv.end);
+                self.update_threat_mask_add_barrier(castle.rook_target);
+                self.update_threat_mask_add_piece(mv.end);
+                self.update_threat_mask_add_piece(castle.rook_target);
             }
         }
     }
@@ -415,7 +420,9 @@ impl Board {
             MoveType::Capture | MoveType::Promote(_, PromotionType::Capture) => {
                 self.remove_threat_mask_piece_at(mv.end)
             }
-            MoveType::Castle(_dir) => (), // TODO: castling
+            MoveType::Castle(castle) => {
+                self.remove_threat_mask_piece_at(castle.rook_pos);
+            }
         }
     }
 

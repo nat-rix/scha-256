@@ -19,12 +19,6 @@ pub struct RestoreEntry {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CastleDirection {
-    Left,
-    Right,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PromotionType {
     Regular,
     Capture,
@@ -32,8 +26,8 @@ pub enum PromotionType {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct Castle {
-    rook_pos: Coord,
-    rook_target: Coord,
+    pub rook_pos: Coord,
+    pub rook_target: Coord,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

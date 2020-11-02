@@ -12,5 +12,5 @@ mod web;
 pub use board::Board;
 
 fn main() {
-    crate::web::run_webserver(board::Board::new());
+    crate::web::run_webserver(Board::new());
 }
