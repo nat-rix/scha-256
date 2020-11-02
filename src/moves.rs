@@ -54,19 +54,21 @@ pub struct Move {
 }
 
 impl Board {
-    fn is_bad_king_move(&self, coord: Coord, target: Coord, color: Color) -> bool {
-        for &threat in self.threat_mask.get(coord).slice() {
+    fn is_bad_king_move(&self, target: Coord, color: Color) -> bool {
+        for &threat in self.get_king(color).aggressors.slice() {
             let f = self.get(threat);
             let dif = (target.0.get() - threat.0.get()).abs();
+            if dif == 0 {
+                continue;
+            }
             let diag = || dif % 9 == 0 || dif % 11 == 0;
             let hor = || dif % 10 == 0 || (target.0.get() / 10 == threat.0.get() / 10);
-            if match (color, f) {
-                (Color::White, Field::BlackPiece(Piece::Bishop))
-                | (Color::Black, Field::WhitePiece(Piece::Bishop)) => diag(),
-                (Color::White, Field::BlackPiece(Piece::Rook))
-                | (Color::Black, Field::WhitePiece(Piece::Rook)) => hor(),
-                (Color::White, Field::BlackPiece(Piece::Queen))
-                | (Color::Black, Field::WhitePiece(Piece::Queen)) => diag() || hor(),
+            if match f {
+                Field::BlackPiece(Piece::Bishop) | Field::WhitePiece(Piece::Bishop) => diag(),
+                Field::BlackPiece(Piece::Rook) | Field::WhitePiece(Piece::Rook) => hor(),
+                Field::BlackPiece(Piece::Queen) | Field::WhitePiece(Piece::Queen) => {
+                    diag() || hor()
+                }
                 _ => false,
             } {
                 return true;
@@ -95,7 +97,7 @@ impl Board {
             if let Some((target_coord, field)) = self.get_if_safe(coord.rel(dx, dy)) {
                 if !self.get_threatened_by(target_coord, color) {
                     if matches!(field, Field::Empty) {
-                        if !is_in_check || !self.is_bad_king_move(coord, target_coord, color) {
+                        if !is_in_check || !self.is_bad_king_move(target_coord, color) {
                             into.append(Move {
                                 start: coord,
                                 end: target_coord,
@@ -103,7 +105,7 @@ impl Board {
                             })
                         }
                     } else if field.is_color_piece(color)
-                        && (!is_in_check || !self.is_bad_king_move(coord, target_coord, color))
+                        && (!is_in_check || !self.is_bad_king_move(target_coord, color))
                     {
                         into.append(Move {
                             start: coord,
@@ -362,11 +364,11 @@ impl Board {
             Field::WhiteKing => self.list_king_moves(coord, Color::White, true, into),
             Field::BlackPiece(piece) => {
                 self.list_piece_moves(coord, *piece, Color::Black, into);
-                self.filter_checks(coord, into)
+                self.filter_checks(Color::Black, into)
             }
             Field::WhitePiece(piece) => {
                 self.list_piece_moves(coord, *piece, Color::White, into);
-                self.filter_checks(coord, into)
+                self.filter_checks(Color::White, into)
             }
         }
     }
@@ -420,12 +422,52 @@ impl Board {
         }
     }
 
-    pub fn is_check_saving(&self, coord: Coord, mv: &Move) -> bool {
-        false
+    fn is_check_saving_piece(&self, threat: Coord, piece: Piece, king: &King, mv: &Move) -> bool {
+        if mv.end == threat {
+            return true;
+        }
+        if let Piece::Pawn | Piece::Knight = piece {
+            return false;
+        }
+        if !self.threat_mask.get(mv.end).slice().contains(&threat) {
+            return false;
+        }
+        let etok = king.coord.0.get() - mv.end.0.get();
+        let ttoe = mv.end.0.get() - threat.0.get();
+        if etok.is_positive() != ttoe.is_positive() {
+            return false;
+        }
+        let (a, b) = (etok.abs(), ttoe.abs());
+        let mf = |n| a.abs() % n == 0 && b.abs() % n == 0;
+        let eq = |x, y, z| x == y && y == z;
+        etok == ttoe
+            || mf(9)
+            || mf(10)
+            || mf(11)
+            || eq(
+                king.coord.0.get() / 10,
+                mv.end.0.get() / 10,
+                threat.0.get() / 10,
+            )
     }
 
-    pub fn filter_checks<const N: usize>(&self, coord: Coord, list: &mut List<Move, N>) {
-        list.filter(|v| self.is_check_saving(coord, v))
+    pub fn is_check_saving(&self, color: Color, mv: &Move) -> bool {
+        let king = self.get_king(color);
+        if let [threat] = king.aggressors.slice() {
+            let f = self.get(*threat);
+            match f {
+                Field::BlackPiece(p) | Field::WhitePiece(p) => {
+                    self.is_check_saving_piece(*threat, *p, king, mv)
+                }
+                _ => false,
+            }
+        } else {
+            false
+        }
+    }
+
+    pub fn filter_checks<const N: usize>(&self, color: Color, list: &mut List<Move, N>) {
+        list.filter(|v| self.is_check_saving(color, v))
     }
 
     pub fn filter_potential_checks<const N: usize>(&self, king: &King, list: &mut List<Move, N>) {
