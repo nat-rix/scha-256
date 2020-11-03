@@ -1,0 +1,64 @@
+<!doctype html>
+<html>
+    <head>
+        <title>{{ title }}</title>
+        <meta charset='utf-8'/>
+        <style>
+.github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out;}@keyframes octocat-wave{0%{transform:rotate(0deg);}20%{transform:rotate(-25deg);}40%{transform:rotate(10deg);}60%{transform:rotate(-25deg);}80%{transform:rotate(10deg);}100%{transform:rotate(0deg);}}@media(max-width:500px){.github-corner:hover .octo-arm {animation:none;}.github-corner .octo-arm {animation:octocat-wave 560ms ease-in-out;}}
+
+body {
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    margin: 0;
+    display: block;
+    position: fixed;
+    background: #333;
+    color: white;
+    font-family: georgia, 'Times New Roman', serif;
+}
+.root {
+    display: flex;
+    flex-direction: column;
+}
+.bar {
+    box-shadow: 0 2px 3px 3px #333;
+    background: black;
+    display: flex;
+    align-items: center
+}
+h1 {
+    margin: 0;
+}
+.body {
+    padding-top: 2em;
+    display: flex;
+}
+.container {
+    margin-left: auto;
+    margin-right: auto;
+}
+        </style>
+    </head>
+    <body>
+        <div class='root'>
+            <div class='bar'>
+                <a style='display: flex; align-items: center; color: white; text-decoration: none;' href='/'>
+                    <h1 style='font-size: 3em; margin-left: 0.3em; margin-right: 0.18em'>♕</h1>
+                    <h3 style='font-family: Courier'>SHA-256</h3>
+                </a>
+                <h1 style='margin-left: auto; margin-right: auto;'>{{ title }}</h1>
+                <a href='https://github.com/natrixaeria/scha-256' style='color: white'>
+                    <img width='80' height='80' viewBox='0 0 250 250' aria-hidden='true' src='https://raw.githubusercontent.com/tholman/github-corners/master/svg/github-corner-right.svg'>
+                </a>
+            </div>
+            <div class='body'>
+                <div class='container'>
+                    {{ container }}
+                </div>
+            </div>
+        </div>
+    </body>
+</html>
+
