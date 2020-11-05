@@ -1,1 +1,79 @@
-This is page content
+<style>
+.index-container {
+    background: #513;
+    border-left: solid 4px #624;
+    padding: 2em;
+}
+h4 {
+    text-decoration: color;
+    font-size: 2.8em;
+    margin: 0;
+    text-decoration: underline;
+    text-decoration-thickness: 0.06em;
+    background: #312;
+    padding: 0.3em;
+    width: max-content;
+}
+h2 {
+    margin: 0;
+}
+.grid {
+    text-align: center;
+    vertical-align: center;
+    border-spacing: 2em;
+    min-width: 40em;
+}
+.pawn {
+    font-size: 10em;
+}
+input[type='checkbox']:checked + label > div:nth-child(2) {
+    display: none;
+}
+input[type='checkbox']:not(:checked) + label > div:nth-child(1) {
+    display: none;
+}
+.button {
+    background: #312;
+    border-bottom: solid 5px #534;
+    color: wheat;
+    font-size: 1.5em;
+    cursor: pointer;
+    padding: 1em;
+    text-align: center;
+    display: block;
+    margin-right: auto;
+    margin-left: auto;
+}
+.submit-button {
+    background: #423;
+    border-bottom: solid 5px #645;
+    color: white;
+    font-size: 1.5em;
+}
+</style>
+<div class='index-container'>
+    <h4>Select settings</h4>
+    <form method='post' action='/game'>
+        <table class='grid'>
+            <tr>
+                <th><h2 class='pawn' style='color: white'>♟︎</h2></th>
+                <th><h2 class='pawn' style='color: black'>♟︎</h2></th>
+            </tr>
+            <tr>
+                {% for i in (1..2) %}
+                <td>
+                    <input class='ispc' type='checkbox' id='ispc{{ i }}' style='display: none'
+                           {% if i == 2 %}checked{% endif %}
+                           name='human{{ i }}'>
+                    <label for='ispc{{ i }}'>
+                        <div class='button'>Computer</div>
+                        <div class='button'>Human</div>
+                    </label>
+                </td>
+                {% endfor %}
+            </tr>
+        </table>
+        <input id='submit' type='submit' style='display: none'></input>
+        <label class='button submit-button' for='submit'>Start Game!</label>
+    </form>
+</div>

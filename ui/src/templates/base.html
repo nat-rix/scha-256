@@ -6,6 +6,12 @@
         <style>
 .github-corner:hover .octo-arm{animation:octocat-wave 560ms ease-in-out;}@keyframes octocat-wave{0%{transform:rotate(0deg);}20%{transform:rotate(-25deg);}40%{transform:rotate(10deg);}60%{transform:rotate(-25deg);}80%{transform:rotate(10deg);}100%{transform:rotate(0deg);}}@media(max-width:500px){.github-corner:hover .octo-arm {animation:none;}.github-corner .octo-arm {animation:octocat-wave 560ms ease-in-out;}}
 
+@font-face {
+    font-family: moz-slab;
+    src: url("https://developer.mozilla.org/static/fonts/locales/ZillaSlab-Regular.subset.bbc33fb47cf6.woff2") format("woff2"), url("https://developer.mozilla.org/static/fonts/locales/ZillaSlab-Regular.subset.0357f12613a7.woff") format("woff");
+    font-style: normal; font-weight: normal; font-display: swap;
+}
+
 body {
     top: 0;
     left: 0;
@@ -16,7 +22,7 @@ body {
     position: fixed;
     background: #333;
     color: white;
-    font-family: georgia, 'Times New Roman', serif;
+    font-family: x-locale-heading-primary,moz-slab,zillaslab,Palatino,"Palatino Linotype",x-locale-heading-secondary,georgia,'Times New Roman',serif;
 }
 .root {
     display: flex;
@@ -46,11 +52,15 @@ h1 {
             <div class='bar'>
                 <a style='display: flex; align-items: center; color: white; text-decoration: none;' href='/'>
                     <h1 style='font-size: 3em; margin-left: 0.3em; margin-right: 0.18em'>♕</h1>
-                    <h3 style='font-family: Courier'>SHA-256</h3>
+                    <h3 style='font-family: Courier, "Courier New", monospace'>SHA-256</h3>
                 </a>
                 <h1 style='margin-left: auto; margin-right: auto;'>{{ title }}</h1>
-                <a href='https://github.com/natrixaeria/scha-256' style='color: white'>
-                    <img width='80' height='80' viewBox='0 0 250 250' aria-hidden='true' src='https://raw.githubusercontent.com/tholman/github-corners/master/svg/github-corner-right.svg'>
+                <a class='github-corner' href='https://github.com/natrixaeria/scha-256' style='color: white'>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="80" height="80" viewBox="0 0 250 250" fill="#151513">
+                      <path d="M0 0l115 115h15l12 27 108 108V0z" fill="#fff"/>
+                      <path class="octo-arm" d="M128 109c-15-9-9-19-9-19 3-7 2-11 2-11-1-7 3-2 3-2 4 5 2 11 2 11-3 10 5 15 9 16" style="-webkit-transform-origin: 130px 106px; transform-origin: 130px 106px"/>
+                      <path class="octo-body" d="M115 115s4 2 5 0l14-14c3-2 6-3 8-3-8-11-15-24 2-41 5-5 10-7 16-7 1-2 3-7 12-11 0 0 5 3 7 16 4 2 8 5 12 9s7 8 9 12c14 3 17 7 17 7-4 8-9 11-11 11 0 6-2 11-7 16-16 16-30 10-41 2 0 3-1 7-5 11l-12 11c-1 1 1 5 1 5z"/>
+                    </svg>
                 </a>
             </div>
             <div class='body'>

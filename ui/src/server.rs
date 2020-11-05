@@ -2,7 +2,9 @@ use crate::Error;
 use std::lazy::SyncLazy;
 
 use rocket::config::{Environment, LoggingLevel};
-use rocket::response::content::Html;
+use rocket::http::RawStr;
+use rocket::request::Form;
+use rocket::response::{content::Html, Redirect};
 use rocket::Request;
 
 pub struct Templates {
@@ -94,6 +96,18 @@ fn index() -> Html<String> {
     Html(TEMPLATES.get_index().unwrap())
 }
 
+#[derive(FromForm, UriDisplayQuery, Debug, Clone)]
+pub struct GameCreationForm {
+    human1: bool,
+    human2: bool,
+}
+
+#[post("/game", data = "<game>")]
+fn new_game(game: Form<GameCreationForm>) -> Redirect {
+    let id = 0;
+    Redirect::to(format!("/game/{}", id))
+}
+
 static TEMPLATES: SyncLazy<Templates> = SyncLazy::new(|| Templates::new().unwrap());
 
 #[derive(Debug, Clone)]
@@ -118,7 +132,7 @@ pub fn launch(config: ServerConfig) -> Error {
     );
     Error::LaunchError(
         app.register(catchers![internal_error, not_found])
-            .mount(&config.root, routes![index])
+            .mount(&config.root, routes![index, new_game])
             .launch(),
     )
 }

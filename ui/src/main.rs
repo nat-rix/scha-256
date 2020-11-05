@@ -31,22 +31,6 @@ fn args_as_config() -> Result<ServerConfig, Error> {
                 .default_value("8080"),
         )
         .arg(
-            Arg::new("white")
-                .long("white")
-                .short('w')
-                .possible_values(&["ai", "ui"])
-                .value_name("OPPONENT")
-                .default_value("ui"),
-        )
-        .arg(
-            Arg::new("black")
-                .long("black")
-                .short('b')
-                .possible_values(&["ai", "ui"])
-                .value_name("OPPONENT")
-                .default_value("ai"),
-        )
-        .arg(
             Arg::new("log-level")
                 .long("log-level")
                 .alias("log")
