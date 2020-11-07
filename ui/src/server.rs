@@ -1,4 +1,8 @@
-use crate::Error;
+use crate::{
+    templates::{Templates, TEMPLATES},
+    Error,
+};
+use engine::chessmatch::MatchRegistry;
 use std::lazy::SyncLazy;
 
 use rocket::config::{Environment, LoggingLevel};
@@ -7,78 +11,20 @@ use rocket::request::Form;
 use rocket::response::{content::Html, Redirect};
 use rocket::Request;
 
-pub struct Templates {
-    base: liquid::Template,
-    index: liquid::Template,
-    s404: liquid::Template,
-    s500: liquid::Template,
+static MATCH_REGISTRY: SyncLazy<MatchRegistry<Match>> = SyncLazy::new(|| MatchRegistry::new());
+
+#[derive(Debug, Clone)]
+pub struct Match {
+    host_color: engine::board::Color,
+    white_human: bool,
+    black_human: bool,
 }
 
-impl Templates {
-    pub fn new() -> Result<Self, Error> {
-        let err = |err| Error::TemplateParsingError(Box::new(err));
-        let parser = liquid::ParserBuilder::with_stdlib().build().unwrap();
-        Ok(Self {
-            base: parser
-                .parse(include_str!("templates/base.html"))
-                .map_err(err)?,
-            index: parser
-                .parse(include_str!("templates/index.html"))
-                .map_err(err)?,
-            s404: parser
-                .parse(include_str!("templates/404.html"))
-                .map_err(err)?,
-            s500: parser
-                .parse(include_str!("templates/500.html"))
-                .map_err(err)?,
-        })
-    }
-
-    fn parsing_err<E: std::error::Error + 'static>(err: E) -> Error {
-        Error::TemplateRenderingError(Box::new(err))
-    }
-
-    fn get_index_container(&self) -> Result<String, Error> {
-        self.index
-            .render(&liquid::object! {{
-            }})
-            .map_err(Self::parsing_err)
-    }
-
-    fn get_base(&self, title: &str, content: Result<String, Error>) -> Result<String, Error> {
-        self.base
-            .render(&liquid::object! {{
-                "title": title,
-                "container": &content?,
-            }})
-            .map_err(Self::parsing_err)
-    }
-
-    pub fn get_index(&self) -> Result<String, Error> {
-        self.get_base("Start Page", self.get_index_container())
-    }
-
-    pub fn get_404(&self, url: &str) -> Result<String, Error> {
-        self.get_base(
-            "Error",
-            self.s404
-                .render(&liquid::object! {{
-                    "url": url
-                }})
-                .map_err(Self::parsing_err),
-        )
-    }
-
-    pub fn get_500(&self, err: &str) -> Result<String, Error> {
-        self.get_base(
-            "Error",
-            self.s500
-                .render(&liquid::object! {{
-                    "error": err
-                }})
-                .map_err(Self::parsing_err),
-        )
-    }
+#[derive(FromForm, UriDisplayQuery, Debug, Clone)]
+pub struct MatchCreationForm {
+    human1: bool,
+    human2: bool,
+    hostcolor: bool,
 }
 
 #[catch(500)]
@@ -96,19 +42,48 @@ fn index() -> Html<String> {
     Html(TEMPLATES.get_index().unwrap())
 }
 
-#[derive(FromForm, UriDisplayQuery, Debug, Clone)]
-pub struct GameCreationForm {
-    human1: bool,
-    human2: bool,
+#[post("/match", data = "<desc>")]
+fn new_match(desc: Form<MatchCreationForm>) -> Redirect {
+    let id = MATCH_REGISTRY.create_match(Match {
+        host_color: match desc.hostcolor {
+            true => engine::board::Color::White,
+            false => engine::board::Color::Black,
+        },
+        white_human: desc.human1,
+        black_human: desc.human2,
+    });
+    Redirect::to(format!("/match/{}/host", id))
 }
 
-#[post("/game", data = "<game>")]
-fn new_game(game: Form<GameCreationForm>) -> Redirect {
-    let id = 0;
-    Redirect::to(format!("/game/{}", id))
+#[derive(Debug, Clone, Copy)]
+pub enum UserType {
+    Host,
+    Player,
+    Spectator,
 }
 
-static TEMPLATES: SyncLazy<Templates> = SyncLazy::new(|| Templates::new().unwrap());
+pub struct RequestWrap<'a, 'r>(&'a Request<'r>);
+impl<'a, 'r> rocket::request::FromRequest<'a, 'r> for RequestWrap<'a, 'r> {
+    type Error = ();
+    fn from_request(req: &'a Request<'r>) -> rocket::request::Outcome<Self, ()> {
+        rocket::request::Outcome::Success(RequestWrap(req))
+    }
+}
+
+#[get("/match/<id>/<user>")]
+fn view_match(req: RequestWrap, id: u32, user: String) -> Result<Html<String>, Html<String>> {
+    let user = match user.as_str() {
+        "host" => UserType::Host,
+        "player" => UserType::Player,
+        "spectator" => UserType::Spectator,
+        _ => return Err(Html(TEMPLATES.get_404(req.0.uri().path()).unwrap())),
+    };
+    let reg = SyncLazy::force(&MATCH_REGISTRY);
+    let board = reg
+        .get_board(id)
+        .ok_or_else(|| Html(TEMPLATES.get_404(req.0.uri().path()).unwrap()))?;
+    Ok(Html(TEMPLATES.get_chessboard(&board).unwrap()))
+}
 
 #[derive(Debug, Clone)]
 pub struct ServerConfig {
@@ -132,7 +107,7 @@ pub fn launch(config: ServerConfig) -> Error {
     );
     Error::LaunchError(
         app.register(catchers![internal_error, not_found])
-            .mount(&config.root, routes![index, new_game])
+            .mount(&config.root, routes![index, new_match, view_match])
             .launch(),
     )
 }

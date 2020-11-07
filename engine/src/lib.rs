@@ -4,6 +4,7 @@
 #![feature(maybe_uninit_ref)]
 
 pub mod board;
+pub mod chessmatch;
 pub mod list;
 pub mod moves;
 pub mod threat;

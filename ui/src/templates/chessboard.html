@@ -1,0 +1,63 @@
+<style>
+.index-container {
+    background: #513;
+    border-left: solid 4px #624;
+    padding: 2em;
+}
+.board {
+    border-spacing: 0;
+    table-layout: fixed;
+}
+.board td {
+    margin: 0;
+    padding: 0;
+}
+.cell {
+    width: max(1em, 1ex);
+    height: max(1em, 1ex);
+    font-size: 6em;
+    text-align: center;
+    display: block;
+}
+.fig0 {
+    color: white;
+    text-shadow: 0px 0px 1px black;
+    -webkit-text-stroke: 1px black;
+}
+.fig1 {
+    color: black;
+    text-shadow: 0px 0px 1px white;
+    -webkit-text-stroke: 1px white;
+}
+.fig {
+    vertical-align: baseline;
+}
+</style>
+<div class='board-container'>
+    <table class='board'>
+{% for y in (0..7) %}
+            <tr>
+    {% for x in (0..7) %}
+        {% assign xy = x|plus:y %}{% assign xym = xy|modulo:2 %}{% assign y8 = y|times:8 %}
+        {% assign xy8 = x|plus:y8 %}
+        {% assign f = matrix[xy8] %}
+        {% assign fv = f|divided_by:2 %}
+        {% assign fc = f|modulo:2 %}
+                <td><div class='cell fig{{ fc }}' style='background: {% if xym == 0 %}white{% else %}black{% endif %}'>
+                <span class='fig'>
+        {% case fv %}
+            {% when 1 %} &#9818;
+            {% when 2 %} &#9819;
+            {% when 3 %} &#9820;
+            {% when 4 %} &#9821;
+            {% when 5 %} &#9822;
+            {% when 6 %} &#9823;
+            {% else %}
+        {% endcase %}
+                </span>
+                </div></td>
+    {% endfor %}
+            </tr>
+{% endfor %}
+    </table>
+</div>

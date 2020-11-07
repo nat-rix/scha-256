@@ -6,6 +6,7 @@ extern crate scha256_engine as engine;
 
 pub mod error;
 pub mod server;
+mod templates;
 
 pub use error::Error;
 
@@ -67,11 +68,8 @@ fn args_as_config() -> Result<ServerConfig, Error> {
 fn main() {
     match args_as_config() {
         Ok(cfg) => {
-            let handle = std::thread::spawn(|| {
-                let e = server::launch(cfg);
-                println!("{}", e)
-            });
-            handle.join().unwrap();
+            let e = server::launch(cfg);
+            println!("{}", e)
         }
         Err(e) => println!("{}", e),
     }

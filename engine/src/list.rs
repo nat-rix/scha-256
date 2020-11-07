@@ -49,6 +49,18 @@ impl<T, const N: usize> List<T, N> {
     pub fn is_empty(&self) -> bool {
         self.size == 0
     }
+
+    pub fn clear(&mut self) {
+        self.explicit_drop();
+        self.size = 0
+    }
+
+    fn explicit_drop(&mut self) {
+        let iter = unsafe { ManuallyDrop::take(&mut self.data) };
+        for item in core::array::IntoIter::new(iter).skip(self.size) {
+            core::mem::forget(item)
+        }
+    }
 }
 
 impl<T: PartialEq + 'static, const N: usize> List<T, N> {
@@ -84,10 +96,7 @@ impl<T: PartialEq + 'static, const N: usize> List<T, N> {
 
 impl<T: Sized, const N: usize> Drop for List<T, N> {
     fn drop(&mut self) {
-        let iter = unsafe { ManuallyDrop::take(&mut self.data) };
-        for item in core::array::IntoIter::new(iter).skip(self.size) {
-            core::mem::forget(item)
-        }
+        self.explicit_drop()
     }
 }
 

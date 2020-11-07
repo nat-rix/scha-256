@@ -26,10 +26,19 @@ h2 {
 .pawn {
     font-size: 10em;
 }
-input[type='checkbox']:checked + label > div:nth-child(2) {
+input#ispc1[type='checkbox']:checked ~ .grid > tbody > #human-row > td > label[for='ispc1'] > div:nth-child(2) {
     display: none;
 }
-input[type='checkbox']:not(:checked) + label > div:nth-child(1) {
+input#ispc1[type='checkbox']:not(:checked) ~ .grid > tbody > #human-row > td > label[for='ispc1'] > div:nth-child(1) {
+    display: none;
+}
+input#ispc2[type='checkbox']:checked ~ .grid > tbody > #human-row > td > label[for='ispc2'] > div:nth-child(2) {
+    display: none;
+}
+input#ispc2[type='checkbox']:not(:checked) ~ .grid > tbody > #human-row > td > label[for='ispc2'] > div:nth-child(1) {
+    display: none;
+}
+input#ispc1[type='checkbox']:checked + input#ispc2[type='checkbox']:checked +.grid > tbody > #hostrow {
     display: none;
 }
 .button {
@@ -50,21 +59,50 @@ input[type='checkbox']:not(:checked) + label > div:nth-child(1) {
     color: white;
     font-size: 1.5em;
 }
+body {
+    --radio-primary: #f5deb3;
+    --radio-secondary: #f5deb350;
+}
+.outerbox {
+    background: transparent;
+    border: solid 4px var(--radio-primary);
+    display: block;
+    margin-right: auto;
+    margin-left: auto;
+    cursor: pointer;
+}
+
+.innerbox {
+    display: block;
+    visibility: collapse;
+    background: var(--radio-primary);
+    width: 100%;
+    height: 2em;
+}
+input[type='radio']:checked + label > .outerbox > .innerbox {
+    visibility: visible !important;
+}
+input[type='radio']:not(:checked) + label > .outerbox:hover > .innerbox {
+    background: var(--radio-secondary);
+    visibility: visible !important;
+}
 </style>
 <div class='index-container'>
     <h4>Select settings</h4>
-    <form method='post' action='/game'>
+    <form method='post' action='/match'>
+        {% for i in (1..2) %}
+        <input class='ispc' type='checkbox' id='ispc{{ i }}' style='display: none'
+               {% if i == 2 %}checked{% endif %}
+               name='human{{ i }}'>
+        {% endfor %}
         <table class='grid'>
             <tr>
                 <th><h2 class='pawn' style='color: white'>♟︎</h2></th>
                 <th><h2 class='pawn' style='color: black'>♟︎</h2></th>
             </tr>
-            <tr>
+            <tr id='human-row'>
                 {% for i in (1..2) %}
                 <td>
-                    <input class='ispc' type='checkbox' id='ispc{{ i }}' style='display: none'
-                           {% if i == 2 %}checked{% endif %}
-                           name='human{{ i }}'>
                     <label for='ispc{{ i }}'>
                         <div class='button'>Computer</div>
                         <div class='button'>Human</div>
@@ -72,8 +110,18 @@ input[type='checkbox']:not(:checked) + label > div:nth-child(1) {
                 </td>
                 {% endfor %}
             </tr>
+            <tr id='hostrow'>
+                {% for i in (1..2) %}
+                <td>
+                    <input id='hostcolor{{ i }}' class='hostcolor' type='radio' name='hostcolor' style='display:none' value={% if i==1 %}'on' checked{% else %}'off'{% endif %}>
+                    <label for='hostcolor{{ i }}'>
+                        <div class='outerbox'><div class='innerbox'></div></div>
+                    </label>
+                </td>
+                {% endfor %}
+            </tr>
         </table>
-        <input id='submit' type='submit' style='display: none'></input>
-        <label class='button submit-button' for='submit'>Start Game!</label>
+        <input id='submit' type='submit' style='display: none'>
+        <label class='button submit-button' for='submit'>Start Match!</label>
     </form>
 </div>

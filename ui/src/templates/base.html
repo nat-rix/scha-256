@@ -13,13 +13,8 @@
 }
 
 body {
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
     margin: 0;
     display: block;
-    position: fixed;
     background: #333;
     color: white;
     font-family: x-locale-heading-primary,moz-slab,zillaslab,Palatino,"Palatino Linotype",x-locale-heading-secondary,georgia,'Times New Roman',serif;
@@ -27,6 +22,8 @@ body {
 .root {
     display: flex;
     flex-direction: column;
+    width: 100vw;
+    height: 100vh;
 }
 .bar {
     box-shadow: 0 2px 3px 3px #333;
@@ -40,6 +37,8 @@ h1 {
 .body {
     padding-top: 2em;
     display: flex;
+    height: 100%;
+    overflow-y: scroll;
 }
 .container {
     margin-left: auto;
@@ -49,7 +48,7 @@ h1 {
     </head>
     <body>
         <div class='root'>
-            <div class='bar'>
+            <header class='bar'>
                 <a style='display: flex; align-items: center; color: white; text-decoration: none;' href='/'>
                     <h1 style='font-size: 3em; margin-left: 0.3em; margin-right: 0.18em'>♕</h1>
                     <h3 style='font-family: Courier, "Courier New", monospace'>SHA-256</h3>
@@ -62,7 +61,7 @@ h1 {
                       <path class="octo-body" d="M115 115s4 2 5 0l14-14c3-2 6-3 8-3-8-11-15-24 2-41 5-5 10-7 16-7 1-2 3-7 12-11 0 0 5 3 7 16 4 2 8 5 12 9s7 8 9 12c14 3 17 7 17 7-4 8-9 11-11 11 0 6-2 11-7 16-16 16-30 10-41 2 0 3-1 7-5 11l-12 11c-1 1 1 5 1 5z"/>
                     </svg>
                 </a>
-            </div>
+            </header>
             <div class='body'>
                 <div class='container'>
                     {{ container }}

@@ -3,6 +3,7 @@ use crate::list::List;
 use crate::threat::{Direction, King};
 
 pub type MoveList = List<Move, 27>;
+pub type LongMoveList = List<MoveList, 16>;
 pub(crate) type RestoreStack = List<RestoreEntry, 256>;
 
 #[derive(Debug, Clone)]
@@ -381,6 +382,31 @@ impl Board {
         }
         self.filter_potential_checks(king, &mut list);
         list
+    }
+
+    pub fn enumerate_all_moves_by(&self, color: Color, list: &mut LongMoveList) {
+        let king = self.get_king(color);
+        let f = if king.aggressors.is_empty() {
+            Self::add_moves
+        } else {
+            Self::add_moves_check
+        };
+        let mut n = 22;
+        for _ in 0..8 {
+            for _ in 0..8 {
+                let coord = Coord(unsafe { core::num::NonZeroI8::new_unchecked(n) });
+                if self.get(coord).is_color_piece_include_king(!color) {
+                    let mut item = MoveList::new();
+                    f(self, coord, &mut item);
+                    self.filter_potential_checks(king, &mut item);
+                    if !item.is_empty() {
+                        list.append(item)
+                    }
+                }
+                n += 1;
+            }
+            n += 4;
+        }
     }
 
     pub fn is_potential_check(&self, king: &King, mv: &Move) -> bool {
