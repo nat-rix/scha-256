@@ -225,6 +225,7 @@ fn promotion_push(
             &[mv] => mv,
             multi => multi[0],
         };
+        reg.do_move(id, mv);
         Ok(Redirect::to(format!("/match/{}/{}", id, userstr)))
     } else {
         Err(rb())
