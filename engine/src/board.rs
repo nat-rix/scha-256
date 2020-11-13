@@ -137,7 +137,7 @@ impl core::str::FromStr for Coord {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         let mut chars = s.trim().chars().map(char::to_lowercase).flatten();
         if let (Some(c1), Some(c2), None) = (chars.next(), chars.next(), chars.next()) {
-            let x = match c1 {
+            let x = match c1.to_ascii_lowercase() {
                 'a' => 0,
                 'b' => 1,
                 'c' => 2,
@@ -234,6 +234,10 @@ impl Coord {
 
     pub const fn endline(&self) -> Option<Color> {
         self.as_unsafe().endline()
+    }
+
+    pub const fn as_xy(self) -> (i8, i8) {
+        ((self.0.get() % 10) - 1, (self.0.get() / 10) - 2)
     }
 }
 

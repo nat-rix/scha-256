@@ -13,11 +13,12 @@
     padding: 0;
 }
 .cell {
-    width: max(1em, 1ex);
-    height: max(1em, 1ex);
+    width: 1em;
+    height: 1em;
     font-size: 6em;
     text-align: center;
     display: block;
+    text-decoration: none;
 }
 .fig0 {
     color: white;
@@ -32,18 +33,57 @@
 .fig {
     vertical-align: baseline;
 }
+.mark1 {
+    box-shadow: inset 0 0 0px 0.15em indianred;
+}
+.mark2 {
+    box-shadow: inset 0 0 0px 0.15em rebeccapurple;
+}
+.overlay {
+    position: absolute;
+    width: 100vw;
+    height: 100vh;
+    top: 0;
+    left: 0;
+    font-size: 800%;
+    background: transparent;
+    display: flex;
+    flex-direction: row;
+    flex-basis: min-content;
+}
+.banner {
+    margin: auto 0;
+    text-align: center;
+    color: #f5deb3;
+    background: #501030f1;
+    align-self: center;
+    width: 100%;
+    padding: 0.6em 0;
+    display: flex;
+    box-shadow: 0px 0px 12vh 12vh;
+}
 </style>
 <div class='board-container'>
     <table class='board'>
-{% for y in (0..7) %}
+{% for y in (0..7) reversed %}
             <tr>
     {% for x in (0..7) %}
+        {% capture lett %}{% cycle "A", "B", "C", "D", "E", "F", "G", "H" %}{% endcapture %}
         {% assign xy = x|plus:y %}{% assign xym = xy|modulo:2 %}{% assign y8 = y|times:8 %}
         {% assign xy8 = x|plus:y8 %}
         {% assign f = matrix[xy8] %}
+        {% assign m = moves[xy8] %}
         {% assign fv = f|divided_by:2 %}
         {% assign fc = f|modulo:2 %}
-                <td><div class='cell fig{{ fc }}' style='background: {% if xym == 0 %}white{% else %}black{% endif %}'>
+        {% assign uri = rooturi %}
+        {% if m %}
+            {% capture uri %}{{ rooturi }}/{{ appendix }}/to{% endcapture %}
+        {% endif %}
+        {% if xy8 != fcoord %}
+            {% capture uri %}{{ uri }}/{{ lett }}{{ y|plus:1 }}{% endcapture %}
+        {% endif %}
+        <td><a href='{{ uri }}' class='cell fig{{ fc }}{% if xy8 == fcoord %} mark1{% endif %}{% if m %} mark2{% endif %}'
+                    style='background: {% if xym == 0 %}white{% else %}black{% endif %}'>
                 <span class='fig'>
         {% case fv %}
             {% when 1 %} &#9818;
@@ -55,9 +95,24 @@
             {% else %}
         {% endcase %}
                 </span>
-                </div></td>
+                </a></td>
     {% endfor %}
             </tr>
 {% endfor %}
     </table>
 </div>
+{% if status != 0 %}
+<div class='overlay'>
+    <div class='banner'>
+        <span>&#x1fa40;</span> <span style='margin: 0 auto'>
+            {% if status == 1 %}
+                White wins!
+            {% elsif status == 2 %}
+                Black wins!
+            {% else %}
+                Stalemate!
+            {% endif %}
+        </span><span>&#x1fa16;</span>
+    </div>
+</div>
+{% endif %}

@@ -1,0 +1,19 @@
+<style>
+.promotecontainer {
+    background: #513;
+    padding: 5em;
+    text-decoration: underline;
+}
+.promotecontainer a {
+    color: white;
+    font-size: 4em;
+}
+</style>
+<div class='promotecontainer'>
+    <h1>Promotion: Choose wisely</h1>
+    {% for i in (1..5) %}
+        <a href='{{uri}}/{% cycle "queen", "rook", "bishop", "knight", "pawn" %}'>
+            &#{% cycle "9819", "9820", "9821", "9822", "9823" %};
+        </a>
+    {% endfor %}
+</div>

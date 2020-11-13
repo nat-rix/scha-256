@@ -9,37 +9,6 @@ pub enum MatchResult {
     Stalemate,
 }
 
-pub trait Opponent {
-    fn decide<'m>(&mut self, board: &mut Board, moves: &'m LongMoveList, color: Color) -> &'m Move;
-}
-
-fn run_match<OW: Opponent, OB: Opponent>(mut white: OW, mut black: OB) -> MatchResult {
-    let mut board = Board::new();
-    let mut color = Color::White;
-    let mut moves = LongMoveList::new();
-    loop {
-        board.update_aggressors(color);
-        moves.clear();
-        board.enumerate_all_moves_by(color, &mut moves);
-        if moves.is_empty() {
-            return if board.get_king(color).aggressors.is_empty() {
-                MatchResult::Stalemate
-            } else {
-                match color {
-                    Color::White => MatchResult::WhiteWins,
-                    Color::Black => MatchResult::BlackWins,
-                }
-            };
-        }
-        let mv = *match color {
-            Color::White => white.decide(&mut board, &moves, color),
-            Color::Black => black.decide(&mut board, &moves, color),
-        };
-        board.do_move(mv);
-        color = !color;
-    }
-}
-
 #[derive(Clone)]
 pub struct MatchInfos<E: Clone> {
     pub result: Option<MatchResult>,
@@ -95,7 +64,29 @@ impl<E: Clone> MatchRegistry<E> {
         self.boards.read().unwrap().get(id as usize).cloned()
     }
 
-    pub fn get_infos(&self, id: u32) -> Option<MatchInfos<E>> {
+    pub fn do_move(&self, id: u32, mv: Move) {
+        if let (Some(v), Some(i)) = (
+            self.boards.write().unwrap().get_mut(id as usize),
+            self.infos.write().unwrap().get_mut(id as usize),
+        ) {
+            v.do_move(mv);
+            i.color = !i.color;
+            v.update_aggressors(i.color);
+            let mut moves = LongMoveList::new();
+            v.enumerate_all_moves_by(i.color, &mut moves);
+            if moves.is_empty() {
+                i.result = Some(if v.get_king(i.color).aggressors.is_empty() {
+                    MatchResult::Stalemate
+                } else if let Color::White = i.color {
+                    MatchResult::BlackWins
+                } else {
+                    MatchResult::WhiteWins
+                })
+            }
+        }
+    }
+
+    pub fn get_info(&self, id: u32) -> Option<MatchInfos<E>> {
         self.infos.read().unwrap().get(id as usize).cloned()
     }
 }
