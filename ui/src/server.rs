@@ -225,7 +225,12 @@ fn promotion_push(
             &[mv] => mv,
             multi => multi[0],
         };
-        reg.do_move(id, mv);
+        reg.do_move(
+            id,
+            mv,
+            (!info.extra.white_human && info.color == Color::Black)
+                || (!info.extra.black_human && info.color == Color::White),
+        );
         Ok(Redirect::to(format!("/match/{}/{}", id, userstr)))
     } else {
         Err(rb())
@@ -266,7 +271,12 @@ fn make_move(
                 }
             }
         };
-        reg.do_move(id, mv);
+        reg.do_move(
+            id,
+            mv,
+            (!info.extra.white_human && info.color == Color::Black)
+                || (!info.extra.black_human && info.color == Color::White),
+        );
         Ok(Redirect::to(format!("/match/{}/{}", id, userstr)))
     } else {
         Err(not_found(req.0))

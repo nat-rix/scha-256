@@ -1,6 +1,6 @@
 use crate::board::{Board, Color};
 use crate::moves::{LongMoveList, Move};
-use std::sync::RwLock;
+use std::sync::{Arc, RwLock};
 
 #[derive(Debug, Clone, Copy)]
 pub enum MatchResult {
@@ -10,37 +10,37 @@ pub enum MatchResult {
 }
 
 #[derive(Clone)]
-pub struct MatchInfos<E: Clone> {
+pub struct MatchInfos<E: Clone + Send + Sync> {
     pub result: Option<MatchResult>,
     pub color: Color,
     pub extra: E,
 }
 
-pub struct MatchRegistry<E: Clone> {
-    empty_slots: RwLock<Vec<u32>>,
-    boards: RwLock<Vec<Board>>,
-    infos: RwLock<Vec<MatchInfos<E>>>,
+pub struct MatchRegistry<E: Clone + Send + Sync> {
+    empty_slots: Arc<RwLock<Vec<u32>>>,
+    boards: Arc<RwLock<Vec<Board>>>,
+    infos: Arc<RwLock<Vec<MatchInfos<E>>>>,
 }
 
-impl<E: Clone> Default for MatchRegistry<E> {
+impl<E: Clone + Send + Sync + 'static> Default for MatchRegistry<E> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<E: Clone> MatchRegistry<E> {
+impl<E: Clone + Send + Sync + 'static> MatchRegistry<E> {
     pub fn new() -> Self {
         Self {
-            empty_slots: RwLock::new(vec![]),
-            boards: RwLock::new(vec![]),
-            infos: RwLock::new(vec![]),
+            empty_slots: Arc::new(RwLock::new(vec![])),
+            boards: Arc::new(RwLock::new(vec![])),
+            infos: Arc::new(RwLock::new(vec![])),
         }
     }
 
     pub fn create_match(&self, extra: E) -> u32 {
         let mut boards = self.boards.write().unwrap();
         let mut infos = self.infos.write().unwrap();
-        let (board, info) = (
+        let (mut board, info) = (
             Board::new(),
             MatchInfos {
                 result: None,
@@ -64,7 +64,27 @@ impl<E: Clone> MatchRegistry<E> {
         self.boards.read().unwrap().get(id as usize).cloned()
     }
 
-    pub fn do_move(&self, id: u32, mv: Move) {
+    fn spawn_decision_maker(&self, id: u32, color: Color, board: &Board) {
+        let boards = self.boards.clone();
+        let infos = self.infos.clone();
+        let board = board.clone();
+        let _handle = std::thread::spawn(move || {
+            let d: crate::decision::DefaultDecisionMaker =
+                crate::decision::DecisionMaker::from_board(board);
+            if let Some(mv) = d.get(color) {
+                if let (Some(v), Some(i)) = (
+                    boards.write().unwrap().get_mut(id as usize),
+                    infos.write().unwrap().get_mut(id as usize),
+                ) {
+                    v.do_move(mv);
+                    i.color = !i.color;
+                    v.update_aggressors(i.color);
+                }
+            }
+        });
+    }
+
+    pub fn do_move(&self, id: u32, mv: Move, otherplayerdecide: bool) {
         if let (Some(v), Some(i)) = (
             self.boards.write().unwrap().get_mut(id as usize),
             self.infos.write().unwrap().get_mut(id as usize),
@@ -82,6 +102,8 @@ impl<E: Clone> MatchRegistry<E> {
                 } else {
                     MatchResult::WhiteWins
                 })
+            } else if otherplayerdecide {
+                self.spawn_decision_maker(id, i.color, &*v);
             }
         }
     }

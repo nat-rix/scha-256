@@ -4,20 +4,6 @@ use crate::threat::{Direction, King};
 
 pub type MoveList = List<Move, 27>;
 pub type LongMoveList = List<MoveList, 16>;
-pub(crate) type RestoreStack = List<RestoreEntry, 256>;
-
-#[derive(Debug, Clone)]
-pub enum RestoreType {
-    Move(Coord, Coord),
-    Capture(Coord, Coord, Field),
-    EnPassant(Coord, Coord, Coord, Color),
-}
-
-#[derive(Debug, Clone)]
-pub struct RestoreEntry {
-    pub en_passant_chance: Option<Coord>,
-    pub restore_type: RestoreType,
-}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PromotionType {
@@ -391,7 +377,7 @@ impl Board {
         } else {
             Self::add_moves_check
         };
-        let mut n = 22;
+        let mut n = 21;
         for _ in 0..8 {
             for _ in 0..8 {
                 let coord = Coord(unsafe { core::num::NonZeroI8::new_unchecked(n) });
@@ -405,7 +391,7 @@ impl Board {
                 }
                 n += 1;
             }
-            n += 4;
+            n += 2;
         }
     }
 
@@ -528,25 +514,13 @@ impl Board {
         match mv.move_type {
             MoveType::Regular => {
                 self.move_piece(mv.start, mv.end, Field::Empty);
-                self.restore_stack.append(RestoreEntry {
-                    en_passant_chance: old_en_passant_chance,
-                    restore_type: RestoreType::Move(mv.end, mv.start),
-                })
             }
             MoveType::RegularPawnDoubleForward => {
                 self.move_piece(mv.start, mv.end, Field::Empty);
-                self.restore_stack.append(RestoreEntry {
-                    en_passant_chance: old_en_passant_chance,
-                    restore_type: RestoreType::Move(mv.end, mv.start),
-                });
                 self.en_passant_chance = Some(mv.end)
             }
             MoveType::Capture => {
                 let old = self.move_piece(mv.start, mv.end, Field::Empty);
-                self.restore_stack.append(RestoreEntry {
-                    en_passant_chance: old_en_passant_chance,
-                    restore_type: RestoreType::Capture(mv.end, mv.start, old),
-                })
             }
             MoveType::Promote(piece, _promotion_type) => {
                 let new_field = match self.pop_field(mv.start, Field::Empty) {
@@ -554,30 +528,11 @@ impl Board {
                     Field::WhitePiece(_) => Field::WhitePiece(piece),
                     v => v,
                 };
-                let restore_type = match self.pop_field(mv.end, new_field) {
-                    Field::Empty => RestoreType::Move(mv.end, mv.start),
-                    old => RestoreType::Capture(mv.end, mv.start, old),
-                };
-                self.restore_stack.append(RestoreEntry {
-                    en_passant_chance: old_en_passant_chance,
-                    restore_type,
-                })
+                self.pop_field(mv.end, new_field);
             }
             MoveType::EnPassant(target) => {
                 self.move_piece(mv.start, mv.end, Field::Empty);
                 let old = self.pop_field(target, Field::Empty);
-                self.restore_stack.append(RestoreEntry {
-                    en_passant_chance: old_en_passant_chance,
-                    restore_type: RestoreType::EnPassant(
-                        mv.end,
-                        mv.start,
-                        target,
-                        match old {
-                            Field::WhitePiece(_) => Color::White,
-                            _ => Color::Black,
-                        },
-                    ),
-                })
             }
             MoveType::Castle(Castle {
                 rook_pos,

@@ -82,7 +82,9 @@
         {% if xy8 != fcoord %}
             {% capture uri %}{{ uri }}/{{ lett }}{{ y|plus:1 }}{% endcapture %}
         {% endif %}
-        <td><a href='{{ uri }}' class='cell fig{{ fc }}{% if xy8 == fcoord %} mark1{% endif %}{% if m %} mark2{% endif %}'
+        <td>
+            <div style='position:absolute; color: blue; font-size: 1.5em;'>{{ y|times:10|plus:21|plus:x }}</div>
+            <a href='{{ uri }}' class='cell fig{{ fc }}{% if xy8 == fcoord %} mark1{% endif %}{% if m %} mark2{% endif %}'
                     style='background: {% if xym == 0 %}white{% else %}black{% endif %}'>
                 <span class='fig'>
         {% case fv %}

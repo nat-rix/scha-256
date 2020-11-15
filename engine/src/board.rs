@@ -241,12 +241,11 @@ impl Coord {
     }
 }
 
-#[derive(Clone)]
+#[derive(Clone, Debug)]
 pub struct Board {
-    data: [Field; 10 * 12],
+    pub(crate) data: [Field; 10 * 12],
     pub(crate) en_passant_chance: Option<Coord>,
     pub(crate) threat_mask: ThreatMask,
-    pub(crate) restore_stack: crate::moves::RestoreStack,
     pub(crate) black_king: King,
     pub(crate) white_king: King,
 }
@@ -289,7 +288,6 @@ impl Board {
             ],
             en_passant_chance: Some(Coord::from_xy(3, 3)),
             threat_mask: ThreatMask::new(),
-            restore_stack: crate::moves::RestoreStack::new(),
             black_king: King::new(Color::Black),
             white_king: King::new(Color::White),
         };
