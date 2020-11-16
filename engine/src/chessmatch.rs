@@ -69,9 +69,9 @@ impl<E: Clone + Send + Sync + 'static> MatchRegistry<E> {
         let infos = self.infos.clone();
         let board = board.clone();
         let _handle = std::thread::spawn(move || {
-            let d: crate::decision::DefaultDecisionMaker =
-                crate::decision::DecisionMaker::from_board(board);
-            if let Some(mv) = d.get(color) {
+            if let Some(mv) =
+                crate::decision::decide(&board, color, crate::decision::DEFAULT_CONFIG)
+            {
                 if let (Some(v), Some(i)) = (
                     boards.write().unwrap().get_mut(id as usize),
                     infos.write().unwrap().get_mut(id as usize),

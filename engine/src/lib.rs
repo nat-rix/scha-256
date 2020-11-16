@@ -8,4 +8,5 @@ pub mod chessmatch;
 pub mod decision;
 pub mod list;
 pub mod moves;
+pub mod score;
 pub mod threat;

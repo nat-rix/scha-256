@@ -2,8 +2,10 @@ use crate::board::{Board, Color, Coord, Field, Piece};
 use crate::list::List;
 use crate::threat::{Direction, King};
 
-pub type MoveList = List<Move, 27>;
-pub type LongMoveList = List<MoveList, 16>;
+const MAX_MOVES: usize = 27;
+const MAX_PIECES: usize = 16;
+pub type MoveList = List<Move, MAX_MOVES>;
+pub type LongMoveList = List<Move, { MAX_PIECES * MAX_MOVES }>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PromotionType {
@@ -339,17 +341,18 @@ impl Board {
     }
 
     fn add_moves_check<const N: usize>(&self, coord: Coord, into: &mut List<Move, N>) {
+        let n = into.slice().len();
         match self.get(coord) {
             Field::Empty | Field::Invincible => (),
             Field::BlackKing => self.list_king_moves(coord, Color::Black, true, into),
             Field::WhiteKing => self.list_king_moves(coord, Color::White, true, into),
             Field::BlackPiece(piece) => {
                 self.list_piece_moves(coord, *piece, Color::Black, into);
-                self.filter_checks(Color::Black, into)
+                self.filter_checks(Color::Black, n, into)
             }
             Field::WhitePiece(piece) => {
                 self.list_piece_moves(coord, *piece, Color::White, into);
-                self.filter_checks(Color::White, into)
+                self.filter_checks(Color::White, n, into)
             }
         }
     }
@@ -366,7 +369,7 @@ impl Board {
         } else {
             self.add_moves_check(coord, &mut list)
         }
-        self.filter_potential_checks(king, &mut list);
+        self.filter_potential_checks(king, 0, &mut list);
         list
     }
 
@@ -382,12 +385,9 @@ impl Board {
             for _ in 0..8 {
                 let coord = Coord(unsafe { core::num::NonZeroI8::new_unchecked(n) });
                 if self.get(coord).is_color_piece_include_king(!color) {
-                    let mut item = MoveList::new();
-                    f(self, coord, &mut item);
-                    self.filter_potential_checks(king, &mut item);
-                    if !item.is_empty() {
-                        list.append(item)
-                    }
+                    let nbefore = list.slice().len();
+                    f(self, coord, list);
+                    self.filter_potential_checks(king, nbefore, list);
                 }
                 n += 1;
             }
@@ -472,12 +472,22 @@ impl Board {
         }
     }
 
-    pub fn filter_checks<const N: usize>(&self, color: Color, list: &mut List<Move, N>) {
-        list.filter(|v| self.is_check_saving(color, v))
+    pub fn filter_checks<const N: usize>(
+        &self,
+        color: Color,
+        start: usize,
+        list: &mut List<Move, N>,
+    ) {
+        list.filter(start, |v| self.is_check_saving(color, v))
     }
 
-    pub fn filter_potential_checks<const N: usize>(&self, king: &King, list: &mut List<Move, N>) {
-        list.filter(|v| !self.is_potential_check(king, v))
+    pub fn filter_potential_checks<const N: usize>(
+        &self,
+        king: &King,
+        start: usize,
+        list: &mut List<Move, N>,
+    ) {
+        list.filter(start, |v| !self.is_potential_check(king, v))
     }
 
     pub fn do_move(&mut self, mv: Move) {

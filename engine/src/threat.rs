@@ -486,7 +486,7 @@ impl Board {
 
     pub fn update_aggressors(&mut self, color: Color) {
         let mut lst = self.threat_mask.get(self.get_king(color).coord).clone();
-        lst.filter(|&coord| self.get(coord).is_color_piece(color));
+        lst.filter(0, |&coord| self.get(coord).is_color_piece(color));
         self.get_king_mut(color).aggressors = lst;
     }
 

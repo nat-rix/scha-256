@@ -212,7 +212,7 @@ fn promotion_push(
         let from = parse_coord(&fromstr).ok_or_else(rb)?;
         let to = parse_coord(&tostr).ok_or_else(rb)?;
         let mut moves = board.enumerate_moves(info.color, from);
-        moves.filter(|mv| {
+        moves.filter(0, |mv| {
             mv.end == to
                 && (if let MoveType::Promote(p, _) = mv.move_type {
                     p == piece
@@ -253,7 +253,7 @@ fn make_move(
         let from = parse_coord(&fromstr).ok_or_else(|| not_found(&req.0))?;
         let to = parse_coord(&tostr).ok_or_else(|| not_found(&req.0))?;
         let mut moves = board.enumerate_moves(info.color, from);
-        moves.filter(|mv| mv.end == to);
+        moves.filter(0, |mv| mv.end == to);
         let mv = match moves.slice() {
             [] => return Err(not_found(&req.0)),
             &[mv] => mv,
