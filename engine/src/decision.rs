@@ -13,7 +13,7 @@ pub fn decide(board: &Board, color: Color, config: Config) -> Option<Move> {
     let moves = get_sorted_moves(board, color);
     max_stage(
         board,
-        moves,
+        &moves,
         config.depth,
         [Score::min(), Score::max()],
         color,
@@ -93,12 +93,13 @@ fn get_sorted_moves(board: &Board, color: Color) -> LongMoveList {
     lst
 }
 
-fn stage_common<F: Fn(&Board, LongMoveList, u32, [Score; 2], Color) -> Option<(Move, Score)>>(
+fn stage_common<F: Fn(&Board, &LongMoveList, u32, [Score; 2], Color) -> Option<(Move, Score)>>(
     board: &Board,
     mv: Move,
     color: Color,
     d: u32,
     win: [Score; 2],
+    pv_found: bool,
     nonescore: Score,
     f: F,
 ) -> Score {
@@ -107,15 +108,27 @@ fn stage_common<F: Fn(&Board, LongMoveList, u32, [Score; 2], Color) -> Option<(M
     board.update_aggressors(!color);
     if d > 0 {
         let moves = get_sorted_moves(&board, !color);
-        f(&board, moves, d - 1, win, !color)
-            .map(|(_, s)| s)
-            .unwrap_or_else(|| {
-                if board.get_king(!color).aggressors.is_empty() {
-                    Score::Stalemate
-                } else {
-                    nonescore
-                }
-            })
+        let cs = |win| {
+            f(&board, &moves, d - 1, win, !color)
+                .map(|(_, s)| s)
+                .unwrap_or_else(|| {
+                    if board.get_king(!color).aggressors.is_empty() {
+                        Score::Stalemate
+                    } else {
+                        nonescore
+                    }
+                })
+        };
+        if pv_found {
+            let score = cs([win[0], win[0] + 1]);
+            if score > win[0] && score < win[1] {
+                cs([score, win[1]])
+            } else {
+                score
+            }
+        } else {
+            cs(win)
+        }
     } else {
         let score = get_white_board_score(&board);
         Score::Value(if (Color::White == color) == (nonescore == Score::MeWins) {
@@ -128,20 +141,33 @@ fn stage_common<F: Fn(&Board, LongMoveList, u32, [Score; 2], Color) -> Option<(M
 
 fn min_stage(
     board: &Board,
-    moves: LongMoveList,
+    moves: &LongMoveList,
     d: u32,
     mut win: [Score; 2],
     color: Color,
 ) -> Option<(Move, Score)> {
     let mut min_score = None;
+    let mut pv_found = false;
     for &mv in moves.slice() {
-        let score = stage_common(&board, mv, color, d, win, Score::EnemyWins, max_stage);
+        let score = stage_common(
+            &board,
+            mv,
+            color,
+            d,
+            win,
+            pv_found,
+            Score::EnemyWins,
+            max_stage,
+        );
         if min_score.map_or_else(|| true, |(_, s)| score < s) {
             min_score = Some((mv, score));
-            win[1] = score;
+            if score <= win[0] {
+                break;
+            }
         }
-        if score <= win[0] {
-            break;
+        if score < win[1] {
+            win[1] = score;
+            pv_found = true;
         }
     }
     min_score
@@ -149,20 +175,33 @@ fn min_stage(
 
 fn max_stage(
     board: &Board,
-    moves: LongMoveList,
+    moves: &LongMoveList,
     d: u32,
     mut win: [Score; 2],
     color: Color,
 ) -> Option<(Move, Score)> {
     let mut max_score = None;
+    let mut pv_found = false;
     for &mv in moves.slice() {
-        let score = stage_common(&board, mv, color, d, win, Score::MeWins, min_stage);
+        let score = stage_common(
+            &board,
+            mv,
+            color,
+            d,
+            win,
+            pv_found,
+            Score::MeWins,
+            min_stage,
+        );
         if max_score.map_or_else(|| true, |(_, s)| score > s) {
             max_score = Some((mv, score));
-            win[0] = score;
+            if score >= win[1] {
+                break;
+            }
         }
-        if score >= win[1] {
-            break;
+        if score > win[0] {
+            win[0] = score;
+            pv_found = true;
         }
     }
     max_score
