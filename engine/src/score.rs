@@ -1,11 +1,27 @@
 use crate::board::{Board, Color, Coord, Field, Piece};
 use core::cmp::Ordering;
 
-const QUEEN_VALUE: i32 = 950;
-const ROOK_VALUE: i32 = 563;
-const BISHOP_VALUE: i32 = 333;
-const KNIGHT_VALUE: i32 = 305;
-const PAWN_VALUE: i32 = 100;
+pub const QUEEN_VALUE: i32 = 9500;
+pub const ROOK_VALUE: i32 = 5630;
+pub const BISHOP_VALUE: i32 = 3330;
+pub const KNIGHT_VALUE: i32 = 3050;
+pub const PAWN_VALUE: i32 = 1000;
+
+pub const QUEEN_THREATENED_VALUE: i32 = 126;
+pub const ROOK_THREATENED_VALUE: i32 = 96;
+pub const BISHOP_THREATENED_VALUE: i32 = 84;
+pub const KNIGHT_THREATENED_VALUE: i32 = 80;
+pub const PAWN_THREATENED_VALUE: i32 = 71;
+pub const EMPTY_THREATENED_VALUE: i32 = 54;
+
+pub const CENTRAL_PIECE_AWARDENING: [i32; 10] = [-100, 0, 200, 300, 300, 200, 0, -100, 0, 0];
+pub const BORDER_QUEEN_PENALTY: i32 = -600;
+pub const BORDER_ROOK_PENALTY: i32 = -400;
+pub const BORDER_BISHOP_PENALTY: i32 = -600;
+pub const BORDER_KNIGHT_PENALTY: i32 = -1000;
+pub const BORDER_PAWN_PENALTY: i32 = 0;
+
+pub const CASTLING_MOVE_SCORE: i32 = 900;
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Score {
@@ -31,6 +47,30 @@ impl Score {
             Piece::Bishop => BISHOP_VALUE,
             Piece::Knight => KNIGHT_VALUE,
             Piece::Pawn => PAWN_VALUE,
+        }
+    }
+
+    pub const fn threat_bounty(f: Field) -> i32 {
+        match f {
+            Field::Empty => EMPTY_THREATENED_VALUE,
+            Field::BlackPiece(p) | Field::WhitePiece(p) => match p {
+                Piece::Queen => QUEEN_THREATENED_VALUE,
+                Piece::Rook => ROOK_THREATENED_VALUE,
+                Piece::Bishop => BISHOP_THREATENED_VALUE,
+                Piece::Knight => KNIGHT_THREATENED_VALUE,
+                Piece::Pawn => PAWN_THREATENED_VALUE,
+            },
+            _ => 0,
+        }
+    }
+
+    pub const fn border_penalty(p: Piece) -> i32 {
+        match p {
+            Piece::Queen => BORDER_QUEEN_PENALTY,
+            Piece::Rook => BORDER_ROOK_PENALTY,
+            Piece::Bishop => BORDER_BISHOP_PENALTY,
+            Piece::Knight => BORDER_KNIGHT_PENALTY,
+            Piece::Pawn => BORDER_PAWN_PENALTY,
         }
     }
 }

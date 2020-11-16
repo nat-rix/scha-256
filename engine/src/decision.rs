@@ -1,6 +1,6 @@
 use crate::board::{Board, Color, Coord, Field, Piece};
-use crate::moves::{LongMoveList, Move};
-use crate::score::Score;
+use crate::moves::{LongMoveList, Move, MoveType, PromotionType};
+use crate::score::{self, Score};
 
 pub const DEFAULT_CONFIG: Config = Config { depth: 6 };
 
@@ -18,7 +18,7 @@ pub fn decide(board: &Board, color: Color, config: Config) -> Option<Move> {
         [Score::min(), Score::max()],
         color,
     )
-    .map(|(m, s)| m)
+    .map(|(m, _)| m)
 }
 
 fn get_move_score(board: &Board, mv: &Move) -> i32 {
@@ -26,7 +26,19 @@ fn get_move_score(board: &Board, mv: &Move) -> i32 {
         Field::BlackPiece(p) | Field::WhitePiece(p) => Score::value_from_piece(*p),
         _ => 0,
     };
-    s(mv.end) - (s(mv.start) >> 1)
+    match mv.move_type {
+        MoveType::Capture => s(mv.end) - (s(mv.start) >> 2),
+        MoveType::Castle(_) => score::CASTLING_MOVE_SCORE,
+        MoveType::Promote(p, t) => {
+            Score::value_from_piece(p)
+                + match t {
+                    PromotionType::Regular => 0,
+                    PromotionType::Capture => s(mv.end),
+                }
+        }
+        MoveType::EnPassant(_) => Score::value_from_piece(Piece::Pawn),
+        _ => 0,
+    }
 }
 
 fn get_white_board_score(board: &Board) -> i32 {
@@ -34,12 +46,37 @@ fn get_white_board_score(board: &Board) -> i32 {
     let mut s = 0;
     for _ in 0..8 {
         for _ in 0..8 {
-            let f = board.get(unsafe { Coord::new_unchecked(n) });
-            s += match f {
+            let coord = unsafe { Coord::new_unchecked(n) };
+            let f = board.get(coord);
+            let mass = match f {
                 Field::WhitePiece(p) => Score::value_from_piece(*p),
                 Field::BlackPiece(p) => -Score::value_from_piece(*p),
                 _ => 0,
             };
+            let bounty = Score::threat_bounty(*f);
+            let bounty_awards: i32 = board
+                .threat_mask
+                .get(coord)
+                .slice()
+                .iter()
+                .map(|&t| match board.get(t) {
+                    Field::WhitePiece(_) | Field::WhiteKing => bounty,
+                    Field::BlackPiece(_) | Field::BlackKing => -bounty,
+                    _ => 0,
+                })
+                .sum();
+            let (x, _y) = coord.as_xy();
+            let central_positioning_award = score::CENTRAL_PIECE_AWARDENING[x as usize];
+            let border_penalty = if x == 0 || x == 7 {
+                match *f {
+                    Field::WhitePiece(p) => Score::border_penalty(p),
+                    Field::BlackPiece(p) => -Score::border_penalty(p),
+                    _ => 0,
+                }
+            } else {
+                0
+            };
+            s += mass + bounty_awards + central_positioning_award + border_penalty;
             n += 1
         }
         n += 2;
@@ -52,7 +89,7 @@ fn get_sorted_moves(board: &Board, color: Color) -> LongMoveList {
     board.enumerate_all_moves_by(color, &mut lst);
     // TODO: make benchmark to test if `sort_by_cached_key` is faster
     lst.slice_mut()
-        .sort_unstable_by_key(|m| get_move_score(&board, m));
+        .sort_unstable_by_key(|m| -get_move_score(&board, m));
     lst
 }
 
