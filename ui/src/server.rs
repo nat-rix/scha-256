@@ -1,15 +1,11 @@
-use crate::{
-    templates::{Templates, TEMPLATES},
-    Error,
-};
+use crate::{templates::TEMPLATES, Error};
 use engine::board::{Color, Coord, Piece};
 use engine::chessmatch::{MatchInfos, MatchRegistry};
-use engine::moves::{Move, MoveType};
+use engine::moves::MoveType;
 use std::lazy::SyncLazy;
 use std::str::FromStr;
 
 use rocket::config::{Environment, LoggingLevel};
-use rocket::http::RawStr;
 use rocket::request::Form;
 use rocket::response::{content::Html, status::NotFound, Redirect};
 use rocket::Request;
@@ -31,7 +27,7 @@ pub struct MatchCreationForm {
 }
 
 #[catch(500)]
-fn internal_error(req: &Request) -> Html<String> {
+fn internal_error(_req: &Request) -> Html<String> {
     Html(TEMPLATES.get_500("").unwrap())
 }
 
@@ -103,7 +99,6 @@ fn view_match(
     id: u32,
     userstr: String,
 ) -> Result<Html<String>, NotFound<Html<String>>> {
-    let user = get_user(&userstr, req.0)?;
     let reg = SyncLazy::force(&MATCH_REGISTRY);
     let board = reg.get_board(id).ok_or_else(|| not_found(req.0))?;
     let info = reg.get_info(id).ok_or_else(|| not_found(&req.0))?;
@@ -164,13 +159,7 @@ fn view_match_select(
 }
 
 #[get("/match/<id>/<userstr>/<fromstr>/to/<tostr>/promote")]
-fn promotion_get(
-    req: RequestWrap,
-    id: u32,
-    userstr: String,
-    fromstr: String,
-    tostr: String,
-) -> Html<String> {
+fn promotion_get(id: u32, userstr: String, fromstr: String, tostr: String) -> Html<String> {
     Html(
         TEMPLATES
             .get_promote(format!(
@@ -202,13 +191,13 @@ fn promotion_push(
         "knight" => Piece::Knight,
         "bishop" => Piece::Bishop,
         "pawn" => Piece::Pawn,
-        _ => Err(rb())?,
+        _ => return Err(rb()),
     };
     let user = get_user(&userstr, req.0).map_err(|_| rb())?;
     let reg = SyncLazy::force(&MATCH_REGISTRY);
     let info = reg.get_info(id).ok_or_else(rb)?;
     if color_to_move(user, &info) {
-        let mut board = reg.get_board(id).ok_or_else(rb)?;
+        let board = reg.get_board(id).ok_or_else(rb)?;
         let from = parse_coord(&fromstr).ok_or_else(rb)?;
         let to = parse_coord(&tostr).ok_or_else(rb)?;
         let mut moves = board.enumerate_moves(info.color, from);
@@ -221,7 +210,7 @@ fn promotion_push(
                 })
         });
         let mv = match moves.slice() {
-            [] => Err(rb())?,
+            [] => return Err(rb()),
             &[mv] => mv,
             multi => multi[0],
         };
@@ -249,7 +238,7 @@ fn make_move(
     let reg = SyncLazy::force(&MATCH_REGISTRY);
     let info = reg.get_info(id).ok_or_else(|| not_found(&req.0))?;
     if color_to_move(user, &info) {
-        let mut board = reg.get_board(id).ok_or_else(|| not_found(&req.0))?;
+        let board = reg.get_board(id).ok_or_else(|| not_found(&req.0))?;
         let from = parse_coord(&fromstr).ok_or_else(|| not_found(&req.0))?;
         let to = parse_coord(&tostr).ok_or_else(|| not_found(&req.0))?;
         let mut moves = board.enumerate_moves(info.color, from);

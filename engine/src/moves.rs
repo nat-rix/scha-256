@@ -520,7 +520,6 @@ impl Board {
             }
             _ => (),
         };
-        let old_en_passant_chance = self.en_passant_chance;
         self.en_passant_chance = None;
         match mv.move_type {
             MoveType::Regular => {
@@ -531,7 +530,7 @@ impl Board {
                 self.en_passant_chance = Some(mv.end)
             }
             MoveType::Capture => {
-                let old = self.move_piece(mv.start, mv.end, Field::Empty);
+                self.move_piece(mv.start, mv.end, Field::Empty);
             }
             MoveType::Promote(piece, _promotion_type) => {
                 let new_field = match self.pop_field(mv.start, Field::Empty) {
@@ -543,7 +542,7 @@ impl Board {
             }
             MoveType::EnPassant(target) => {
                 self.move_piece(mv.start, mv.end, Field::Empty);
-                let old = self.pop_field(target, Field::Empty);
+                self.pop_field(target, Field::Empty);
             }
             MoveType::Castle(Castle {
                 rook_pos,

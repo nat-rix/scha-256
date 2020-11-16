@@ -40,7 +40,7 @@ impl<E: Clone + Send + Sync + 'static> MatchRegistry<E> {
     pub fn create_match(&self, extra: E) -> u32 {
         let mut boards = self.boards.write().unwrap();
         let mut infos = self.infos.write().unwrap();
-        let (mut board, info) = (
+        let (board, info) = (
             Board::new(),
             MatchInfos {
                 result: None,

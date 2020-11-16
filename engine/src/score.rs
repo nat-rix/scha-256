@@ -1,4 +1,4 @@
-use crate::board::{Board, Color, Coord, Field, Piece};
+use crate::board::{Field, Piece};
 use core::cmp::Ordering;
 
 pub const QUEEN_VALUE: i32 = 9500;
