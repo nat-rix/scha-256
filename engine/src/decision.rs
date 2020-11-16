@@ -2,7 +2,7 @@ use crate::board::{Board, Color, Coord, Field, Piece};
 use crate::moves::{LongMoveList, Move, MoveType, PromotionType};
 use crate::score::{self, Score};
 
-pub const DEFAULT_CONFIG: Config = Config { depth: 6 };
+pub const DEFAULT_CONFIG: Config = Config { depth: 5 };
 
 #[derive(Clone, Debug)]
 pub struct Config {

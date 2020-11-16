@@ -40,12 +40,13 @@ impl Board {
     fn is_bad_king_move(&self, target: Coord, color: Color) -> bool {
         for &threat in self.get_king(color).aggressors.slice() {
             let f = self.get(threat);
-            let dif = (target.0.get() - threat.0.get()).abs();
-            if dif == 0 {
+            if target == threat {
                 continue;
             }
-            let diag = || dif % 9 == 0 || dif % 11 == 0;
-            let hor = || dif % 10 == 0 || (target.0.get() / 10 == threat.0.get() / 10);
+            let (x1, y1) = target.as_xy();
+            let (x2, y2) = threat.as_xy();
+            let diag = || (x1 - x2).abs() == (y1 - y2).abs();
+            let hor = || x1 == x2 || y1 == y2;
             if match f {
                 Field::BlackPiece(Piece::Bishop) | Field::WhitePiece(Piece::Bishop) => diag(),
                 Field::BlackPiece(Piece::Rook) | Field::WhitePiece(Piece::Rook) => hor(),
