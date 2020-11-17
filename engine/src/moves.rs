@@ -111,7 +111,8 @@ impl Board {
                     | (Color::White, Some((rook_pos, Field::WhitePiece(Piece::Rook)))) =
                         (color, self.get_if_safe(coord.rel(d3, 0)))
                     {
-                        if !self.get_threatened_by(rook_target, color)
+                        if (d1 > 0 || matches!(self.get(coord.rel(d1 + d2, 0)), Field::Empty))
+                            && !self.get_threatened_by(rook_target, color)
                             && !self.get_threatened_by(king_target, color)
                         {
                             into.append(Move {
