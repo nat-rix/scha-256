@@ -2,22 +2,10 @@ use crate::board::{Board, Color, Coord, Field, Piece};
 use crate::list::List;
 use crate::threat::{Direction, King};
 
-pub type MoveList = List<Move, 27>;
-pub type LongMoveList = List<MoveList, 16>;
-pub(crate) type RestoreStack = List<RestoreEntry, 256>;
-
-#[derive(Debug, Clone)]
-pub enum RestoreType {
-    Move(Coord, Coord),
-    Capture(Coord, Coord, Field),
-    EnPassant(Coord, Coord, Coord, Color),
-}
-
-#[derive(Debug, Clone)]
-pub struct RestoreEntry {
-    pub en_passant_chance: Option<Coord>,
-    pub restore_type: RestoreType,
-}
+const MAX_MOVES: usize = 27;
+const MAX_PIECES: usize = 16;
+pub type MoveList = List<Move, MAX_MOVES>;
+pub type LongMoveList = List<Move, { MAX_PIECES * MAX_MOVES }>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum PromotionType {
@@ -52,12 +40,13 @@ impl Board {
     fn is_bad_king_move(&self, target: Coord, color: Color) -> bool {
         for &threat in self.get_king(color).aggressors.slice() {
             let f = self.get(threat);
-            let dif = (target.0.get() - threat.0.get()).abs();
-            if dif == 0 {
+            if target == threat {
                 continue;
             }
-            let diag = || dif % 9 == 0 || dif % 11 == 0;
-            let hor = || dif % 10 == 0 || (target.0.get() / 10 == threat.0.get() / 10);
+            let (x1, y1) = target.as_xy();
+            let (x2, y2) = threat.as_xy();
+            let diag = || (x1 - x2).abs() == (y1 - y2).abs();
+            let hor = || x1 == x2 || y1 == y2;
             if match f {
                 Field::BlackPiece(Piece::Bishop) | Field::WhitePiece(Piece::Bishop) => diag(),
                 Field::BlackPiece(Piece::Rook) | Field::WhitePiece(Piece::Rook) => hor(),
@@ -353,17 +342,18 @@ impl Board {
     }
 
     fn add_moves_check<const N: usize>(&self, coord: Coord, into: &mut List<Move, N>) {
+        let n = into.slice().len();
         match self.get(coord) {
             Field::Empty | Field::Invincible => (),
             Field::BlackKing => self.list_king_moves(coord, Color::Black, true, into),
             Field::WhiteKing => self.list_king_moves(coord, Color::White, true, into),
             Field::BlackPiece(piece) => {
                 self.list_piece_moves(coord, *piece, Color::Black, into);
-                self.filter_checks(Color::Black, into)
+                self.filter_checks(Color::Black, n, into)
             }
             Field::WhitePiece(piece) => {
                 self.list_piece_moves(coord, *piece, Color::White, into);
-                self.filter_checks(Color::White, into)
+                self.filter_checks(Color::White, n, into)
             }
         }
     }
@@ -380,7 +370,7 @@ impl Board {
         } else {
             self.add_moves_check(coord, &mut list)
         }
-        self.filter_potential_checks(king, &mut list);
+        self.filter_potential_checks(king, 0, &mut list);
         list
     }
 
@@ -391,21 +381,18 @@ impl Board {
         } else {
             Self::add_moves_check
         };
-        let mut n = 22;
+        let mut n = 21;
         for _ in 0..8 {
             for _ in 0..8 {
                 let coord = Coord(unsafe { core::num::NonZeroI8::new_unchecked(n) });
                 if self.get(coord).is_color_piece_include_king(!color) {
-                    let mut item = MoveList::new();
-                    f(self, coord, &mut item);
-                    self.filter_potential_checks(king, &mut item);
-                    if !item.is_empty() {
-                        list.append(item)
-                    }
+                    let nbefore = list.slice().len();
+                    f(self, coord, list);
+                    self.filter_potential_checks(king, nbefore, list);
                 }
                 n += 1;
             }
-            n += 4;
+            n += 2;
         }
     }
 
@@ -486,12 +473,22 @@ impl Board {
         }
     }
 
-    pub fn filter_checks<const N: usize>(&self, color: Color, list: &mut List<Move, N>) {
-        list.filter(|v| self.is_check_saving(color, v))
+    pub fn filter_checks<const N: usize>(
+        &self,
+        color: Color,
+        start: usize,
+        list: &mut List<Move, N>,
+    ) {
+        list.filter(start, |v| self.is_check_saving(color, v))
     }
 
-    pub fn filter_potential_checks<const N: usize>(&self, king: &King, list: &mut List<Move, N>) {
-        list.filter(|v| !self.is_potential_check(king, v))
+    pub fn filter_potential_checks<const N: usize>(
+        &self,
+        king: &King,
+        start: usize,
+        list: &mut List<Move, N>,
+    ) {
+        list.filter(start, |v| !self.is_potential_check(king, v))
     }
 
     pub fn do_move(&mut self, mv: Move) {
@@ -523,30 +520,17 @@ impl Board {
             }
             _ => (),
         };
-        let old_en_passant_chance = self.en_passant_chance;
         self.en_passant_chance = None;
         match mv.move_type {
             MoveType::Regular => {
                 self.move_piece(mv.start, mv.end, Field::Empty);
-                self.restore_stack.append(RestoreEntry {
-                    en_passant_chance: old_en_passant_chance,
-                    restore_type: RestoreType::Move(mv.end, mv.start),
-                })
             }
             MoveType::RegularPawnDoubleForward => {
                 self.move_piece(mv.start, mv.end, Field::Empty);
-                self.restore_stack.append(RestoreEntry {
-                    en_passant_chance: old_en_passant_chance,
-                    restore_type: RestoreType::Move(mv.end, mv.start),
-                });
                 self.en_passant_chance = Some(mv.end)
             }
             MoveType::Capture => {
-                let old = self.move_piece(mv.start, mv.end, Field::Empty);
-                self.restore_stack.append(RestoreEntry {
-                    en_passant_chance: old_en_passant_chance,
-                    restore_type: RestoreType::Capture(mv.end, mv.start, old),
-                })
+                self.move_piece(mv.start, mv.end, Field::Empty);
             }
             MoveType::Promote(piece, _promotion_type) => {
                 let new_field = match self.pop_field(mv.start, Field::Empty) {
@@ -554,30 +538,11 @@ impl Board {
                     Field::WhitePiece(_) => Field::WhitePiece(piece),
                     v => v,
                 };
-                let restore_type = match self.pop_field(mv.end, new_field) {
-                    Field::Empty => RestoreType::Move(mv.end, mv.start),
-                    old => RestoreType::Capture(mv.end, mv.start, old),
-                };
-                self.restore_stack.append(RestoreEntry {
-                    en_passant_chance: old_en_passant_chance,
-                    restore_type,
-                })
+                self.pop_field(mv.end, new_field);
             }
             MoveType::EnPassant(target) => {
                 self.move_piece(mv.start, mv.end, Field::Empty);
-                let old = self.pop_field(target, Field::Empty);
-                self.restore_stack.append(RestoreEntry {
-                    en_passant_chance: old_en_passant_chance,
-                    restore_type: RestoreType::EnPassant(
-                        mv.end,
-                        mv.start,
-                        target,
-                        match old {
-                            Field::WhitePiece(_) => Color::White,
-                            _ => Color::Black,
-                        },
-                    ),
-                })
+                self.pop_field(target, Field::Empty);
             }
             MoveType::Castle(Castle {
                 rook_pos,

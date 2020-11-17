@@ -1,7 +1,6 @@
 use crate::Error;
-use engine::board::{Coord, Field, Piece};
+use engine::board::{Field, Piece};
 use engine::chessmatch::MatchResult;
-use rocket::Request;
 use std::lazy::SyncLazy;
 
 pub(crate) static TEMPLATES: SyncLazy<Templates> = SyncLazy::new(|| Templates::new().unwrap());

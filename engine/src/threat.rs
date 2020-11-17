@@ -85,7 +85,7 @@ impl Direction {
 
 #[derive(Debug, Clone)]
 pub struct ThreatMask {
-    threats: [ThreatList; 10 * 12],
+    pub(crate) threats: [ThreatList; 10 * 12],
 }
 
 impl Default for ThreatMask {
@@ -333,10 +333,16 @@ impl Board {
         let mut i = coord;
         loop {
             let next = i.rel(dx, dy);
-            list.append(next);
             match self.get(next) {
-                Field::Empty => i = unsafe { next.as_safe_unchecked() },
-                _ => return,
+                Field::Empty => {
+                    i = unsafe { next.as_safe_unchecked() };
+                    list.append(next)
+                }
+                Field::Invincible => break,
+                _ => {
+                    list.append(next);
+                    break;
+                }
             }
         }
     }
@@ -480,7 +486,7 @@ impl Board {
 
     pub fn update_aggressors(&mut self, color: Color) {
         let mut lst = self.threat_mask.get(self.get_king(color).coord).clone();
-        lst.filter(|&coord| self.get(coord).is_color_piece(color));
+        lst.filter(0, |&coord| self.get(coord).is_color_piece(color));
         self.get_king_mut(color).aggressors = lst;
     }
 

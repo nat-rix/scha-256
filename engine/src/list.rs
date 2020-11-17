@@ -76,19 +76,20 @@ impl<T: PartialEq + 'static, const N: usize> List<T, N> {
 
     pub fn swap_remove_at(&mut self, n: usize) {
         let sz = self.size;
-        if n + 1 < N {
+        if n + 1 < self.size {
             self.slice_mut().swap(sz - 1, n)
         }
         self.size -= 1;
     }
 
-    pub fn filter<F: FnMut(&T) -> bool>(&mut self, mut f: F) {
-        let n = self.size;
-        for i in 0..n {
-            let i = n - i - 1;
-            let v = unsafe { self.slice().get_unchecked(i) };
-            if !f(v) {
-                self.swap_remove_at(i);
+    pub fn filter<F: FnMut(&T) -> bool>(&mut self, start: usize, mut f: F) {
+        for i in (start..self.size).rev() {
+            if !f(&self.slice()[i]) {
+                if i + 1 < self.size {
+                    let n = self.size;
+                    self.slice_mut().swap(n - 1, i)
+                }
+                self.size -= 1
             }
         }
     }
