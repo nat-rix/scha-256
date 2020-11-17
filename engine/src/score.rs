@@ -23,6 +23,8 @@ pub const BORDER_PAWN_PENALTY: i32 = 0;
 
 pub const CASTLING_MOVE_SCORE: i32 = 900;
 
+pub const QUIESCENCE_BOUNDS: i32 = 800;
+
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 pub enum Score {
     MeWins,
@@ -71,6 +73,17 @@ impl Score {
             Piece::Bishop => BORDER_BISHOP_PENALTY,
             Piece::Knight => BORDER_KNIGHT_PENALTY,
             Piece::Pawn => BORDER_PAWN_PENALTY,
+        }
+    }
+
+    pub fn is_in_quiescence_bounds(self, o: Self) -> bool {
+        match (self, o) {
+            (Score::Value(a), Score::Value(b)) => a
+                .checked_sub(b)
+                .map(i32::abs)
+                .map(|n| n <= QUIESCENCE_BOUNDS)
+                .unwrap_or(false),
+            _ => false,
         }
     }
 }

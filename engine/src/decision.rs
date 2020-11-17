@@ -2,23 +2,37 @@ use crate::board::{Board, Color, Coord, Field, Piece};
 use crate::moves::{LongMoveList, Move, MoveType, PromotionType};
 use crate::score::{self, Score};
 
-pub const DEFAULT_CONFIG: Config = Config { depth: 5 };
+pub const DEFAULT_CONFIG: Config = Config {
+    depth: 5,
+    max_quiescence_depth: 4,
+};
 
 #[derive(Clone, Debug)]
 pub struct Config {
     pub depth: u32,
+    pub max_quiescence_depth: u32,
 }
 
 pub fn decide(board: &Board, color: Color, config: Config) -> Option<Move> {
+    let now = std::time::Instant::now();
     let moves = get_sorted_moves(board, color);
     max_stage(
         board,
         &moves,
         config.depth,
+        config.max_quiescence_depth,
+        Score::min(),
         [Score::min(), Score::max()],
         color,
     )
-    .map(|(m, _)| m)
+    .map(|(m, s)| {
+        println!(
+            "Completed decision with a final score of {:?}. The computation took {:?}",
+            s,
+            now.elapsed()
+        );
+        m
+    })
 }
 
 fn get_move_score(board: &Board, mv: &Move) -> i32 {
@@ -93,11 +107,15 @@ fn get_sorted_moves(board: &Board, color: Color) -> LongMoveList {
     lst
 }
 
-fn stage_common<F: Fn(&Board, &LongMoveList, u32, [Score; 2], Color) -> Option<(Move, Score)>>(
+fn stage_common<
+    F: Fn(&Board, &LongMoveList, u32, u32, Score, [Score; 2], Color) -> Option<(Move, Score)>,
+>(
     board: &Board,
     mv: Move,
     color: Color,
     d: u32,
+    q: u32,
+    mut last_score: Score,
     win: [Score; 2],
     pv_found: bool,
     nonescore: Score,
@@ -106,10 +124,18 @@ fn stage_common<F: Fn(&Board, &LongMoveList, u32, [Score; 2], Color) -> Option<(
     let mut board = board.clone();
     board.do_move(mv);
     board.update_aggressors(!color);
-    if d > 0 {
+    let sc = || {
+        let score = get_white_board_score(&board);
+        Score::Value(if (Color::White == color) == (nonescore == Score::MeWins) {
+            score
+        } else {
+            -score
+        })
+    };
+    let ccs = |d, q, last_score| {
         let moves = get_sorted_moves(&board, !color);
         let cs = |win| {
-            f(&board, &moves, d - 1, win, !color)
+            f(&board, &moves, d, q, last_score, win, !color)
                 .map(|(_, s)| s)
                 .unwrap_or_else(|| {
                     if board.get_king(!color).aggressors.is_empty() {
@@ -129,13 +155,19 @@ fn stage_common<F: Fn(&Board, &LongMoveList, u32, [Score; 2], Color) -> Option<(
         } else {
             cs(win)
         }
+    };
+    if d > 0 {
+        if d == 1 {
+            last_score = sc()
+        }
+        ccs(d - 1, q, last_score)
     } else {
-        let score = get_white_board_score(&board);
-        Score::Value(if (Color::White == color) == (nonescore == Score::MeWins) {
-            score
+        let now = sc();
+        if q == 0 || now.is_in_quiescence_bounds(last_score) {
+            now
         } else {
-            -score
-        })
+            ccs(0, q - 1, now)
+        }
     }
 }
 
@@ -143,6 +175,8 @@ fn min_stage(
     board: &Board,
     moves: &LongMoveList,
     d: u32,
+    q: u32,
+    last_score: Score,
     mut win: [Score; 2],
     color: Color,
 ) -> Option<(Move, Score)> {
@@ -154,6 +188,8 @@ fn min_stage(
             mv,
             color,
             d,
+            q,
+            last_score,
             win,
             pv_found,
             Score::EnemyWins,
@@ -177,6 +213,8 @@ fn max_stage(
     board: &Board,
     moves: &LongMoveList,
     d: u32,
+    q: u32,
+    last_score: Score,
     mut win: [Score; 2],
     color: Color,
 ) -> Option<(Move, Score)> {
@@ -188,6 +226,8 @@ fn max_stage(
             mv,
             color,
             d,
+            q,
+            last_score,
             win,
             pv_found,
             Score::MeWins,
