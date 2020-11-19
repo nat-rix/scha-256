@@ -236,6 +236,10 @@ impl Coord {
         self.as_unsafe().endline()
     }
 
+    pub const fn get_inline_x(self) -> i8 {
+        self.0.get() % 10
+    }
+
     pub const fn as_xy(self) -> (i8, i8) {
         ((self.0.get() % 10) - 1, (self.0.get() / 10) - 2)
     }

@@ -97,7 +97,9 @@ impl<T: PartialEq + 'static, const N: usize> List<T, N> {
 
 impl<T: Sized, const N: usize> Drop for List<T, N> {
     fn drop(&mut self) {
-        self.explicit_drop()
+        if core::mem::needs_drop::<T>() {
+            self.explicit_drop()
+        }
     }
 }
 

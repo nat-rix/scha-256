@@ -62,35 +62,28 @@ fn get_white_board_score(board: &Board) -> i32 {
         for _ in 0..8 {
             let coord = unsafe { Coord::new_unchecked(n) };
             let f = board.get(coord);
-            let mass = match f {
+            s += match f {
                 Field::WhitePiece(p) => Score::value_from_piece(*p),
                 Field::BlackPiece(p) => -Score::value_from_piece(*p),
                 _ => 0,
             };
             let bounty = Score::threat_bounty(*f);
-            let bounty_awards: i32 = board
-                .threat_mask
-                .get(coord)
-                .slice()
-                .iter()
-                .map(|&t| match board.get(t) {
+            for &threat in board.threat_mask.get(coord).slice() {
+                s += match board.get(threat) {
                     Field::WhitePiece(_) | Field::WhiteKing => bounty,
                     Field::BlackPiece(_) | Field::BlackKing => -bounty,
                     _ => 0,
-                })
-                .sum();
-            let (x, _y) = coord.as_xy();
-            let central_positioning_award = score::CENTRAL_PIECE_AWARDENING[x as usize];
-            let border_penalty = if x == 0 || x == 7 {
-                match *f {
-                    Field::WhitePiece(p) => Score::border_penalty(p),
-                    Field::BlackPiece(p) => -Score::border_penalty(p),
-                    _ => 0,
                 }
-            } else {
-                0
-            };
-            s += mass + bounty_awards + central_positioning_award + border_penalty;
+            }
+            let x = coord.get_inline_x();
+            s += unsafe { score::CENTRAL_PIECE_AWARDENING.get_unchecked(x as usize) };
+            if x == 1 || x == 8 {
+                match *f {
+                    Field::WhitePiece(p) => s += Score::border_penalty(p),
+                    Field::BlackPiece(p) => s -= Score::border_penalty(p),
+                    _ => (),
+                }
+            }
             n += 1
         }
         n += 2;

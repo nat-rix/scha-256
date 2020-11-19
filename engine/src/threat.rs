@@ -434,17 +434,16 @@ impl Board {
 
     fn get_potential_checks(&mut self, coord: Coord, color: Color) -> List<(Coord, Direction), 8> {
         let mut pcs = List::new();
-        for dir in &[
-            Direction::Up,
-            Direction::Down,
-            Direction::Left,
-            Direction::Right,
-            Direction::UpLeft,
-            Direction::UpRight,
-            Direction::DownLeft,
-            Direction::DownRight,
+        for &(dir, (dx, dy)) in &[
+            (Direction::Up, (0, 1)),
+            (Direction::Down, (0, -1)),
+            (Direction::Left, (-1, 0)),
+            (Direction::Right, (1, 0)),
+            (Direction::UpLeft, (-1, 1)),
+            (Direction::UpRight, (1, 1)),
+            (Direction::DownLeft, (-1, -1)),
+            (Direction::DownRight, (1, -1)),
         ] {
-            let (dx, dy) = dir.get_xy();
             let mut pos = coord;
             let mut visited = None;
             while let Some((safepos, field)) = self.get_if_safe(pos.rel(dx, dy)) {
@@ -462,7 +461,7 @@ impl Board {
                     | (Some(visited), Color::Black, Field::WhitePiece(piece))
                         if matches!((dir.is_diagonal(), piece), (_, Piece::Queen) | (true, Piece::Bishop) | (false, Piece::Rook)) =>
                     {
-                        pcs.append((visited, *dir))
+                        pcs.append((visited, dir))
                     }
                     (Some(_visited), _, Field::BlackPiece(_))
                     | (Some(_visited), _, Field::WhitePiece(_))

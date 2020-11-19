@@ -16,7 +16,7 @@ codegen-units = 256
 
 [profile.release]
 opt-level = 3
-debug = 0
+debug = true
 debug-assertions = false
 overflow-checks = false
 lto = "fat"

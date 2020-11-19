@@ -14,7 +14,18 @@ pub const KNIGHT_THREATENED_VALUE: i32 = 80;
 pub const PAWN_THREATENED_VALUE: i32 = 71;
 pub const EMPTY_THREATENED_VALUE: i32 = 54;
 
-pub const CENTRAL_PIECE_AWARDENING: [i32; 10] = [-100, 0, 200, 300, 300, 200, 0, -100, 0, 0];
+pub const CENTRAL_PIECE_AWARDENING: [i32; 10] = [
+    core::i32::MIN,
+    -100,
+    0,
+    200,
+    300,
+    300,
+    200,
+    0,
+    -100,
+    core::i32::MIN,
+];
 pub const BORDER_QUEEN_PENALTY: i32 = -600;
 pub const BORDER_ROOK_PENALTY: i32 = -400;
 pub const BORDER_BISHOP_PENALTY: i32 = -600;
